@@ -1,6 +1,6 @@
 /*
  *  TCC - Tiny C Compiler
- * 
+ *
  *  Copyright (c) 2001-2004 Fabrice Bellard
  *
  * This library is free software; you can redistribute it and/or
@@ -97,7 +97,7 @@ static void exec_other_tcc(TCCState *s, char **argv, const char *optarg)
         case 64: break;
         case 32: target = "i386";
 #endif
-            pstrcpy(child_path, sizeof child_path - 40, argv[0]);
+            pstrcpy(child_path, sizeof(child_path) - 40, argv[0]);
             child_name = tcc_basename(child_path);
             strcpy(child_name, target);
 #ifdef TCC_TARGET_PE
@@ -144,7 +144,7 @@ static void gen_makedeps(TCCState *s, const char *target, const char *filename)
         tcc_error("could not open '%s'", filename);
 
     fprintf(depout, "%s : \\\n", target);
-    for (i=0; i<s->nb_target_deps; ++i)
+    for (i = 0; i < s->nb_target_deps; ++i)
         fprintf(depout, " %s \\\n", s->target_deps[i]);
     fprintf(depout, "\n");
     fclose(depout);
@@ -252,12 +252,12 @@ int main(int argc, char **argv)
     s->output_type = TCC_OUTPUT_EXE;
 
     optind = tcc_parse_args(s, argc - 1, argv + 1);
-    tcc_set_environment(s);
-
     if (optind == 0) {
         help();
         return 1;
     }
+
+    tcc_set_environment(s);
 
     if (s->option_m)
         exec_other_tcc(s, argv, s->option_m);
@@ -285,7 +285,7 @@ int main(int argc, char **argv)
         if (s->nb_files != 1)
             tcc_error("cannot specify multiple files with -c");
     }
-    
+
     if (s->output_type == TCC_OUTPUT_PREPROCESS) {
         if (!s->outfile) {
             s->ppfp = stdout;
@@ -313,7 +313,7 @@ int main(int argc, char **argv)
                 ret = 1;
             }
         } else {
-            if (1 == s->verbose)
+            if (s->verbose == 1)
                 printf("-> %s\n", filename);
             if (tcc_add_file(s, filename) < 0)
                 ret = 1;
@@ -322,7 +322,7 @@ int main(int argc, char **argv)
         }
     }
 
-    if (0 == ret) {
+    if (ret == 0) {
         if (bench)
             tcc_print_stats(s, getclock_us() - start_time);
 
@@ -339,9 +339,9 @@ int main(int argc, char **argv)
         } else {
             if (!s->outfile)
                 s->outfile = default_outputfile(s, first_file);
-            ret = !!tcc_output_file(s, s->outfile);
+            ret = tcc_output_file(s, s->outfile);
             /* dump collected dependencies */
-            if (s->gen_deps && !ret)
+            if (s->gen_deps && ret == 0)
                 gen_makedeps(s, s->outfile, s->deps_outfile);
         }
     }

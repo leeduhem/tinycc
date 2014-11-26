@@ -1,6 +1,6 @@
 /*
  *  TCC - Tiny C Compiler
- * 
+ *
  *  Copyright (c) 2001-2004 Fabrice Bellard
  *
  * This library is free software; you can redistribute it and/or
@@ -587,7 +587,7 @@ struct TCCState {
     /* C language options */
     int char_is_unsigned;
     int leading_underscore;
-    
+
     /* warning switches */
     int warn_write_strings;
     int warn_unsupported;
@@ -612,7 +612,7 @@ struct TCCState {
 
     char *init_symbol; /* symbols to call at load-time (not used currently) */
     char *fini_symbol; /* symbols to call at unload-time (not used currently) */
-    
+
 #ifdef TCC_TARGET_I386
     int seg_size; /* 32. Can be 16 with i386 assembler (.code16) */
 #endif
@@ -857,7 +857,7 @@ struct TCCState {
 
 #define TOK_SHL   0x01 /* shift left */
 #define TOK_SAR   0x02 /* signed shift right */
-  
+
 /* assignement operators : normal operator or 0x80 */
 #define TOK_A_MOD 0xa5
 #define TOK_A_AND 0xa6
