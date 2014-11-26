@@ -61,14 +61,14 @@ case $targetos in
 esac
 
 # find source path
-# XXX: we assume an absolute path is given when launching configure, 
+# XXX: we assume an absolute path is given when launching configure,
 # except in './configure' case.
 source_path=${0%configure}
 source_path=${source_path%/}
 source_path_used="yes"
 if test -z "$source_path" -o "$source_path" = "." ; then
-    source_path=`pwd`
-    source_path_used="no"
+  source_path=`pwd`
+  source_path_used="no"
 fi
 
 classify_cpu ()
@@ -196,65 +196,65 @@ classify_cpu "$cpu"
 
 # Checking for CFLAGS
 if test -z "$CFLAGS"; then
-    CFLAGS="-Wall -g -O2"
+  CFLAGS="-Wall -g -O2"
 fi
 
 if test "$mingw32" = "yes" ; then
-    if test x"$tccdir" = x""; then
+  if test x"$tccdir" = x""; then
     tccdir="tcc"
-    fi
-    if test -z "$prefix" ; then
+  fi
+  if test -z "$prefix" ; then
     prefix="C:/Program Files/${tccdir}"
-    fi
-    if test -z "$sharedir" ; then
+  fi
+  if test -z "$sharedir" ; then
     sharedir="${prefix}"
-    fi
-    execprefix="$prefix"
-    bindir="${prefix}"
-    tccdir="${prefix}"
-    libdir="${prefix}/lib"
-    docdir="${sharedir}/doc"
-    mandir="${sharedir}/man"
-    infodir="${sharedir}/info"
-    LIBSUF=".lib"
-    EXESUF=".exe"
+  fi
+  execprefix="$prefix"
+  bindir="${prefix}"
+  tccdir="${prefix}"
+  libdir="${prefix}/lib"
+  docdir="${sharedir}/doc"
+  mandir="${sharedir}/man"
+  infodir="${sharedir}/info"
+  LIBSUF=".lib"
+  EXESUF=".exe"
 else
-    if test -z "$prefix" ; then
+  if test -z "$prefix" ; then
     prefix="/usr/local"
-    fi
-    if test -z "$sharedir" ; then
+  fi
+  if test -z "$sharedir" ; then
     sharedir="${prefix}/share"
-    fi
-    if test x"$execprefix" = x""; then
+  fi
+  if test x"$execprefix" = x""; then
     execprefix="${prefix}"
-    fi
-    if test x"$libdir" = x""; then
+  fi
+  if test x"$libdir" = x""; then
     libdir="${execprefix}/lib"
-    fi
-    if test x"$bindir" = x""; then
+  fi
+  if test x"$bindir" = x""; then
     bindir="${execprefix}/bin"
-    fi
-    if test x"$tccdir" = x""; then
+  fi
+  if test x"$tccdir" = x""; then
     tccdir="tcc"
-    fi
-    if test x"$docdir" = x""; then
+  fi
+  if test x"$docdir" = x""; then
     docdir="${sharedir}/doc/${tccdir}"
-    fi
-    if test x"$mandir" = x""; then
+  fi
+  if test x"$mandir" = x""; then
     mandir="${sharedir}/man"
-    fi
-    if test x"$infodir" = x""; then
+  fi
+  if test x"$infodir" = x""; then
     infodir="${sharedir}/info"
-    fi
-    tccdir="${libdir}/${tccdir}"
+  fi
+  tccdir="${libdir}/${tccdir}"
 fi # mingw32
 
 if test x"$includedir" = x""; then
-includedir="${prefix}/include"
+  includedir="${prefix}/include"
 fi
 
 if test x"$show_help" = "xyes" ; then
-cat << EOF
+  cat << EOF
 Usage: configure [options]
 Options: [defaults in brackets after descriptions]
 
@@ -294,8 +294,8 @@ Advanced options (experts only):
   --crtprefix=...          specify locations of crt?.o, colon separated
   --elfinterp=...          specify elf interpreter
 EOF
-#echo "NOTE: The object files are build at the place where configure is launched"
-exit 1
+  echo "NOTE: The object files are build at the place where configure is launched"
+  exit 0
 fi
 
 cc="${cross_prefix}${cc}"
