@@ -356,7 +356,7 @@ typedef union CValue {
 
 /* value on stack */
 typedef struct SValue {
-    CType type;      /* type */
+    CType type;        	   /* type */
     unsigned short r;      /* register + flags */
     unsigned short r2;     /* second register, used for 'long long'
                               type. If not used, set to VT_CONST */
@@ -376,7 +376,7 @@ struct Attribute {
         mode          : 4,
         weak          : 1,
         visibility    : 2,
-        fill          : 8; // 8 bits left to fit well in union below
+        fill          : 8; /* 8 bits left to fit well in union below */
 };
 
 /* GNUC attribute definition */
@@ -388,22 +388,22 @@ typedef struct AttributeDef {
 
 /* symbol management */
 typedef struct Sym {
-    int v;    /* symbol token */
+    int v;    		/* symbol token */
     char *asm_label;    /* associated asm label */
     union {
-        long r;    /* associated register */
+        long r;    	/* associated register */
         struct Attribute a;
     };
     union {
-        long c;    /* associated number */
-        int *d;   /* define token stream */
+        long c;		/* associated number */
+        int *d;   	/* define token stream */
     };
-    CType type;    /* associated type */
+    CType type;    	/* associated type */
     union {
         struct Sym *next; /* next related symbol */
-        long jnext; /* next jump label */
+        long jnext; 	/* next jump label */
     };
-    struct Sym *prev; /* prev symbol in stack */
+    struct Sym *prev; 	/* prev symbol in stack */
     struct Sym *prev_tok; /* previous symbol for this token */
 } Sym;
 
@@ -433,9 +433,9 @@ typedef struct Section {
     int nb_hashed_syms;      /* used to resize the hash table */
     struct Section *link;    /* link to another section */
     struct Section *reloc;   /* corresponding section for relocation, if any */
-    struct Section *hash;     /* hash table for symbols */
+    struct Section *hash;    /* hash table for symbols */
     struct Section *next;
-    char name[1];           /* section name */
+    char name[1];            /* section name */
 } Section;
 
 typedef struct DLLReference {
@@ -489,15 +489,15 @@ typedef struct BufferedFile {
     uint8_t *buf_end;
     int fd;
     struct BufferedFile *prev;
-    int line_num;    /* current line number - here to simplify code */
-    int ifndef_macro;  /* #ifndef macro / #endif search */
+    int line_num;    	/* current line number - here to simplify code */
+    int ifndef_macro;  	/* #ifndef macro / #endif search */
     int ifndef_macro_saved; /* saved ifndef_macro */
-    int *ifdef_stack_ptr; /* ifdef_stack value at the start of the file */
+    int *ifdef_stack_ptr;   /* ifdef_stack value at the start of the file */
     char filename[1024];    /* filename */
     unsigned char buffer[IO_BUF_SIZE + 1]; /* extra size for CH_EOB char */
 } BufferedFile;
 
-#define CH_EOB   '\\'       /* end of buffer or '\0' char in file */
+#define CH_EOB   '\\'	/* end of buffer or '\0' char in file */
 #define CH_EOF   (-1)   /* end of file */
 
 /* parsing state (used to save parser state to reparse part of the
