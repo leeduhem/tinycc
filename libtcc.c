@@ -1412,15 +1412,14 @@ ST_FUNC int set_flag(TCCState *s, const FlagDef *flags, int nb_flags,
         value = !value;
     }
     for(i = 0, p = flags; i < nb_flags; i++, p++) {
-        if (!strcmp(r, p->name))
-            goto found;
+        if (!strcmp(r, p->name)) {
+            if (p->flags & FD_INVERT)
+                value = !value;
+            *(int *)((uint8_t *)s + p->offset) = value;
+            return 0;
+        }
     }
     return -1;
- found:
-    if (p->flags & FD_INVERT)
-        value = !value;
-    *(int *)((uint8_t *)s + p->offset) = value;
-    return 0;
 }
 
 /* set/reset a warning */
