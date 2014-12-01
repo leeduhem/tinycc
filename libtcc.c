@@ -566,7 +566,7 @@ static void strcat_printf(char *buf, int buf_size, const char *fmt, ...)
     va_end(ap);
 }
 
-static void error1(TCCState *s1, int is_warning, const char *fmt, va_list ap)
+static void error1(TCCState *s, int is_warning, const char *fmt, va_list ap)
 {
     char buf[2048];
     BufferedFile **pf, *f;
@@ -576,15 +576,14 @@ static void error1(TCCState *s1, int is_warning, const char *fmt, va_list ap)
     for (f = file; f && f->filename[0] == ':'; f = f->prev)
      ;
     if (f) {
-        for(pf = s1->include_stack; pf < s1->include_stack_ptr; pf++)
+        for(pf = s->include_stack; pf < s->include_stack_ptr; pf++)
             strcat_printf(buf, sizeof(buf), "In file included from %s:%d:\n",
                 (*pf)->filename, (*pf)->line_num);
         if (f->line_num > 0) {
-            strcat_printf(buf, sizeof(buf), "%s:%d: ",
-                f->filename, f->line_num);
+            strcat_printf(buf, sizeof(buf), "%s:%d: ", f->filename,
+                          f->line_num);
         } else {
-            strcat_printf(buf, sizeof(buf), "%s: ",
-                f->filename);
+            strcat_printf(buf, sizeof(buf), "%s: ", f->filename);
         }
     } else {
         strcat_printf(buf, sizeof(buf), "tcc: ");
@@ -595,14 +594,14 @@ static void error1(TCCState *s1, int is_warning, const char *fmt, va_list ap)
         strcat_printf(buf, sizeof(buf), "error: ");
     strcat_vprintf(buf, sizeof(buf), fmt, ap);
 
-    if (!s1->error_func) {
+    if (!s->error_func) {
         /* default case: stderr */
         fprintf(stderr, "%s\n", buf);
     } else {
-        s1->error_func(s1->error_opaque, buf);
+        s->error_func(s->error_opaque, buf);
     }
-    if (!is_warning || s1->warn_error)
-        s1->nb_errors++;
+    if (!is_warning || s->warn_error)
+        s->nb_errors++;
 }
 
 LIBTCCAPI void tcc_set_error_func(TCCState *s, void *error_opaque,
@@ -615,25 +614,25 @@ LIBTCCAPI void tcc_set_error_func(TCCState *s, void *error_opaque,
 /* error without aborting current compilation */
 PUB_FUNC void tcc_error_noabort(const char *fmt, ...)
 {
-    TCCState *s1 = tcc_state;
+    TCCState *s = tcc_state;
     va_list ap;
 
     va_start(ap, fmt);
-    error1(s1, 0, fmt, ap);
+    error1(s, 0, fmt, ap);
     va_end(ap);
 }
 
 PUB_FUNC void tcc_error(const char *fmt, ...)
 {
-    TCCState *s1 = tcc_state;
+    TCCState *s = tcc_state;
     va_list ap;
 
     va_start(ap, fmt);
-    error1(s1, 0, fmt, ap);
+    error1(s, 0, fmt, ap);
     va_end(ap);
     /* better than nothing: in some cases, we accept to handle errors */
-    if (s1->error_set_jmp_enabled) {
-        longjmp(s1->error_jmp_buf, 1);
+    if (s->error_set_jmp_enabled) {
+        longjmp(s->error_jmp_buf, 1);
     } else {
         /* XXX: eliminate this someday */
         exit(1);
@@ -642,21 +641,21 @@ PUB_FUNC void tcc_error(const char *fmt, ...)
 
 PUB_FUNC void tcc_warning(const char *fmt, ...)
 {
-    TCCState *s1 = tcc_state;
+    TCCState *s = tcc_state;
     va_list ap;
 
-    if (s1->warn_none)
+    if (s->warn_none)
         return;
 
     va_start(ap, fmt);
-    error1(s1, 1, fmt, ap);
+    error1(s, 1, fmt, ap);
     va_end(ap);
 }
 
 /********************************************************/
 /* I/O layer */
 
-ST_FUNC void tcc_open_bf(TCCState *s1, const char *filename, int initlen)
+ST_FUNC void tcc_open_bf(TCCState *s, const char *filename, int initlen)
 {
     BufferedFile *bf;
     int buflen = initlen ? initlen : IO_BUF_SIZE;
@@ -671,7 +670,7 @@ ST_FUNC void tcc_open_bf(TCCState *s1, const char *filename, int initlen)
 #endif
     bf->line_num = 1;
     bf->ifndef_macro = 0;
-    bf->ifdef_stack_ptr = s1->ifdef_stack_ptr;
+    bf->ifdef_stack_ptr = s->ifdef_stack_ptr;
     bf->fd = -1;
     bf->prev = file;
     file = bf;
@@ -688,20 +687,20 @@ ST_FUNC void tcc_close(void)
     tcc_free(bf);
 }
 
-ST_FUNC int tcc_open(TCCState *s1, const char *filename)
+ST_FUNC int tcc_open(TCCState *s, const char *filename)
 {
     int fd;
     if (strcmp(filename, "-") == 0)
         fd = 0, filename = "stdin";
     else
         fd = open(filename, O_RDONLY | O_BINARY);
-    if ((s1->verbose == 2 && fd >= 0) || s1->verbose == 3)
+    if ((s->verbose == 2 && fd >= 0) || s->verbose == 3)
         printf("%s %*s%s\n", fd < 0 ? "nf":"->",
-               (int)(s1->include_stack_ptr - s1->include_stack), "", filename);
+               (int)(s->include_stack_ptr - s->include_stack), "", filename);
     if (fd < 0)
         return -1;
 
-    tcc_open_bf(s1, filename, 0);
+    tcc_open_bf(s, filename, 0);
     file->fd = fd;
     return fd;
 }
@@ -828,7 +827,7 @@ LIBTCCAPI int tcc_compile_string(TCCState *s, const char *str)
 }
 
 /* define a preprocessor symbol. A value can also be provided with the '=' operator */
-LIBTCCAPI void tcc_define_symbol(TCCState *s1, const char *sym, const char *value)
+LIBTCCAPI void tcc_define_symbol(TCCState *s, const char *sym, const char *value)
 {
     int len1, len2;
     /* default value */
@@ -838,7 +837,7 @@ LIBTCCAPI void tcc_define_symbol(TCCState *s1, const char *sym, const char *valu
     len2 = strlen(value);
 
     /* init file structure */
-    tcc_open_bf(s1, "<define>", len1 + len2 + 1);
+    tcc_open_bf(s, "<define>", len1 + len2 + 1);
     memcpy(file->buffer, sym, len1);
     file->buffer[len1] = ' ';
     memcpy(file->buffer + len1 + 1, value, len2);
@@ -1437,8 +1436,8 @@ static int tcc_set_warning(TCCState *s, const char *warning_name, int value)
         }
         return 0;
     } else {
-        return set_flag(s, warning_defs, countof(warning_defs),
-                        warning_name, value);
+        return set_flag(s, warning_defs, countof(warning_defs), warning_name,
+                        value);
     }
 }
 
@@ -1452,8 +1451,7 @@ static const FlagDef flag_defs[] = {
 /* set/reset a flag */
 static int tcc_set_flag(TCCState *s, const char *flag_name, int value)
 {
-    return set_flag(s, flag_defs, countof(flag_defs),
-                    flag_name, value);
+    return set_flag(s, flag_defs, countof(flag_defs), flag_name, value);
 }
 
 
@@ -1533,7 +1531,6 @@ static char *copy_linker_arg(const char *p)
 static int tcc_set_linker(TCCState *s, const char *option)
 {
     while (option && *option) {
-
         const char *p = option;
         char *end = NULL;
         int ignoring = 0;
@@ -1546,7 +1543,7 @@ static int tcc_set_linker(TCCState *s, const char *option)
             s->fini_symbol = copy_linker_arg(p);
             ignoring = 1;
         } else if (link_option(option, "image-base=", &p)
-                || link_option(option, "Ttext=", &p)) {
+                   || link_option(option, "Ttext=", &p)) {
             s->text_addr = strtoull(p, &end, 16);
             s->has_text_addr = 1;
         } else if (link_option(option, "init=", &p)) {
@@ -1569,7 +1566,6 @@ static int tcc_set_linker(TCCState *s, const char *option)
 #endif
             } else
                 goto err;
-
         } else if (link_option(option, "as-needed", &p)) {
             ignoring = 1;
         } else if (link_option(option, "O", &p)) {
@@ -1613,7 +1609,9 @@ static int tcc_set_linker(TCCState *s, const char *option)
         } else
             goto err;
 
-        if (ignoring && s->warn_unsupported) err: {
+        if (ignoring && s->warn_unsupported)
+        err:
+        {
             char buf[100], *e;
             pstrcpy(buf, sizeof buf, e = copy_linker_arg(option)), tcc_free(e);
             if (ignoring)
@@ -1730,13 +1728,13 @@ static const TCCOption tcc_options[] = {
     { NULL, 0, 0 },
 };
 
-static void parse_option_D(TCCState *s1, const char *optarg)
+static void parse_option_D(TCCState *s, const char *optarg)
 {
     char *sym = tcc_strdup(optarg);
     char *value = strchr(sym, '=');
     if (value)
         *value++ = '\0';
-    tcc_define_symbol(s1, sym, value);
+    tcc_define_symbol(s, sym, value);
     tcc_free(sym);
 }
 
@@ -1753,7 +1751,6 @@ PUB_FUNC int tcc_parse_args(TCCState *s, int argc, char **argv)
     cstr_new(&linker_arg);
 
     while (optind < argc) {
-
         r = argv[optind++];
         if (r[0] != '-' || r[1] == '\0') {
             /* add a new file */
@@ -1891,8 +1888,7 @@ PUB_FUNC int tcc_parse_args(TCCState *s, int argc, char **argv)
                 goto unsupported_option;
             break;
         case TCC_OPTION_W:
-            if (tcc_set_warning(s, optarg, 1) < 0 &&
-                s->warn_unsupported)
+            if (tcc_set_warning(s, optarg, 1) < 0 && s->warn_unsupported)
                 goto unsupported_option;
             break;
         case TCC_OPTION_w:
@@ -1902,8 +1898,10 @@ PUB_FUNC int tcc_parse_args(TCCState *s, int argc, char **argv)
             s->rdynamic = 1;
             break;
         case TCC_OPTION_Wl:
-            if (linker_arg.size)
-                --linker_arg.size, cstr_ccat(&linker_arg, ',');
+            if (linker_arg.size) {
+                --linker_arg.size;
+                cstr_ccat(&linker_arg, ',');
+            }
             cstr_cat(&linker_arg, optarg);
             cstr_ccat(&linker_arg, '\0');
             break;
