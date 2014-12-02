@@ -1250,10 +1250,12 @@ the_end:
 
 LIBTCCAPI int tcc_add_file(TCCState *s, const char *filename)
 {
+    int flags;
+
+    flags = AFF_PRINT_ERROR;
     if (s->output_type == TCC_OUTPUT_PREPROCESS)
-        return tcc_add_file_internal(s, filename, AFF_PRINT_ERROR | AFF_PREPROCESS);
-    else
-        return tcc_add_file_internal(s, filename, AFF_PRINT_ERROR);
+        flags |= AFF_PREPROCESS;
+    return tcc_add_file_internal(s, filename, flags);
 }
 
 LIBTCCAPI int tcc_add_library_path(TCCState *s, const char *pathname)
