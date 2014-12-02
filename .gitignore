@@ -56,6 +56,8 @@ tags
 TAGS
 .DS_Store
 *.swp
+\#*
+.#*
 lib/x86_64
 lib/i386
 lib/x86_64-win32
