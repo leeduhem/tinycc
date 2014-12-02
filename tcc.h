@@ -137,22 +137,30 @@
 #include "stab.h"
 #include "libtcc.h"
 
+#if 0
 /* parser debug */
-/* #define PARSE_DEBUG */
-/* preprocessor debug */
-/* #define PP_DEBUG */
-/* include file debug */
-/* #define INC_DEBUG */
-/* memory leak debug */
-/* #define MEM_DEBUG */
-/* assembler debug */
-/* #define ASM_DEBUG */
+#define PARSE_DEBUG
+#endif
 
-/* target selection */
-/* #define TCC_TARGET_I386   *//* i386 code generator */
-/* #define TCC_TARGET_ARM    *//* ARMv4 code generator */
-/* #define TCC_TARGET_C67    *//* TMS320C67xx code generator */
-/* #define TCC_TARGET_X86_64 *//* x86-64 code generator */
+#if 0
+/* preprocessor debug */
+#define PP_DEBUG
+#endif
+
+#if 0
+/* include file debug */
+#define INC_DEBUG
+#endif
+
+#if 0
+/* memory leak debug */
+#define MEM_DEBUG
+#endif
+
+#if 0
+/* assembler debug */
+#define ASM_DEBUG
+#endif
 
 /* default target is I386 */
 #if !defined(TCC_TARGET_I386) && !defined(TCC_TARGET_ARM) && \
