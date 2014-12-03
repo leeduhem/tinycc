@@ -1192,11 +1192,18 @@ ST_DATA SValue __vstack[1+/*to make bcheck happy*/ VSTACK_SIZE], *vtop;
 #define vstack  (__vstack + 1)
 ST_DATA int rsym, anon_sym, ind, loc;
 
-ST_DATA int const_wanted; /* true if constant wanted */
-ST_DATA int nocode_wanted; /* true if no code generation wanted for an expression */
-ST_DATA int global_expr;  /* true if compound literals must be allocated globally (used during initializers parsing */
-ST_DATA CType func_vt; /* current function return type (used by return instruction) */
-ST_DATA int func_var; /* true if current function is variadic */
+/* true if constant wanted */
+ST_DATA int const_wanted;
+/* true if no code generation wanted for an expression */
+ST_DATA int nocode_wanted;
+/* true if compound literals must be allocated globally (used during
+   initializers parsing) */
+ST_DATA int global_expr;
+
+/* current function return type (used by return instruction) */
+ST_DATA CType func_vt;
+/* true if current function is variadic */
+ST_DATA int func_var;
 ST_DATA int func_vc;
 ST_DATA int last_line_num, last_ind, func_ind; /* debug last line number and pc */
 ST_DATA char *funcname;
@@ -1262,13 +1269,13 @@ typedef struct {
     unsigned int n_value;        /* value of symbol */
 } Stab_Sym;
 
-ST_FUNC Section *new_symtab(TCCState *s1, const char *symtab_name, int sh_type, int sh_flags, const char *strtab_name, const char *hash_name, int hash_sh_flags);
+ST_FUNC Section *new_symtab(TCCState *s, const char *symtab_name, int sh_type, int sh_flags, const char *strtab_name, const char *hash_name, int hash_sh_flags);
 
-ST_FUNC int put_elf_str(Section *s, const char *sym);
-ST_FUNC int put_elf_sym(Section *s, addr_t value, unsigned long size, int info, int other, int shndx, const char *name);
-ST_FUNC int add_elf_sym(Section *s, addr_t value, unsigned long size, int info, int other, int sh_num, const char *name);
-ST_FUNC int find_elf_sym(Section *s, const char *name);
-ST_FUNC void put_elf_reloc(Section *symtab, Section *s, unsigned long offset, int type, int symbol);
+ST_FUNC int put_elf_str(Section *sec, const char *sym);
+ST_FUNC int put_elf_sym(Section *sec, addr_t value, unsigned long size, int info, int other, int shndx, const char *name);
+ST_FUNC int add_elf_sym(Section *sec, addr_t value, unsigned long size, int info, int other, int sh_num, const char *name);
+ST_FUNC int find_elf_sym(Section *sec, const char *name);
+ST_FUNC void put_elf_reloc(Section *symtab, Section *sec, unsigned long offset, int type, int symbol);
 
 ST_FUNC void put_stabs(const char *str, int type, int other, int desc, unsigned long value);
 ST_FUNC void put_stabs_r(const char *str, int type, int other, int desc, unsigned long value, Section *sec, int sym_index);
@@ -1276,17 +1283,17 @@ ST_FUNC void put_stabn(int type, int other, int desc, int value);
 ST_FUNC void put_stabd(int type, int other, int desc);
 
 ST_FUNC void relocate_common_syms(void);
-ST_FUNC void relocate_syms(TCCState *s1, int do_resolve);
-ST_FUNC void relocate_section(TCCState *s1, Section *s);
-ST_FUNC void relocate_plt(TCCState *s1);
+ST_FUNC void relocate_syms(TCCState *s, int do_resolve);
+ST_FUNC void relocate_section(TCCState *s, Section *sec);
+ST_FUNC void relocate_plt(TCCState *s);
 
-ST_FUNC void tcc_add_linker_symbols(TCCState *s1);
-ST_FUNC int tcc_load_object_file(TCCState *s1, int fd, unsigned long file_offset);
-ST_FUNC int tcc_load_archive(TCCState *s1, int fd);
-ST_FUNC void tcc_add_bcheck(TCCState *s1);
+ST_FUNC void tcc_add_linker_symbols(TCCState *s);
+ST_FUNC int tcc_load_object_file(TCCState *s, int fd, unsigned long file_offset);
+ST_FUNC int tcc_load_archive(TCCState *s, int fd);
+ST_FUNC void tcc_add_bcheck(TCCState *s);
 
-ST_FUNC void build_got_entries(TCCState *s1);
-ST_FUNC void tcc_add_runtime(TCCState *s1);
+ST_FUNC void build_got_entries(TCCState *s);
+ST_FUNC void tcc_add_runtime(TCCState *s);
 
 ST_FUNC addr_t get_elf_sym_addr(TCCState *s, const char *name, int err);
 #if defined TCC_IS_NATIVE || defined TCC_TARGET_PE
@@ -1294,8 +1301,8 @@ ST_FUNC void *tcc_get_symbol_err(TCCState *s, const char *name);
 #endif
 
 #ifndef TCC_TARGET_PE
-ST_FUNC int tcc_load_dll(TCCState *s1, int fd, const char *filename, int level);
-ST_FUNC int tcc_load_ldscript(TCCState *s1);
+ST_FUNC int tcc_load_dll(TCCState *s, int fd, const char *filename, int level);
+ST_FUNC int tcc_load_ldscript(TCCState *s);
 ST_FUNC uint8_t *parse_comment(uint8_t *p);
 ST_FUNC void minp(void);
 ST_INLN void inp(void);

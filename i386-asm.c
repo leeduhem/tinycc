@@ -168,45 +168,45 @@ static const uint8_t reg_to_size[9] = {
 #define NB_TEST_OPCODES 30
 
 static const uint8_t test_bits[NB_TEST_OPCODES] = {
- 0x00, /* o */
- 0x01, /* no */
- 0x02, /* b */
- 0x02, /* c */
- 0x02, /* nae */
- 0x03, /* nb */
- 0x03, /* nc */
- 0x03, /* ae */
- 0x04, /* e */
- 0x04, /* z */
- 0x05, /* ne */
- 0x05, /* nz */
- 0x06, /* be */
- 0x06, /* na */
- 0x07, /* nbe */
- 0x07, /* a */
- 0x08, /* s */
- 0x09, /* ns */
- 0x0a, /* p */
- 0x0a, /* pe */
- 0x0b, /* np */
- 0x0b, /* po */
- 0x0c, /* l */
- 0x0c, /* nge */
- 0x0d, /* nl */
- 0x0d, /* ge */
- 0x0e, /* le */
- 0x0e, /* ng */
- 0x0f, /* nle */
- 0x0f, /* g */
+    0x00, /* o */
+    0x01, /* no */
+    0x02, /* b */
+    0x02, /* c */
+    0x02, /* nae */
+    0x03, /* nb */
+    0x03, /* nc */
+    0x03, /* ae */
+    0x04, /* e */
+    0x04, /* z */
+    0x05, /* ne */
+    0x05, /* nz */
+    0x06, /* be */
+    0x06, /* na */
+    0x07, /* nbe */
+    0x07, /* a */
+    0x08, /* s */
+    0x09, /* ns */
+    0x0a, /* p */
+    0x0a, /* pe */
+    0x0b, /* np */
+    0x0b, /* po */
+    0x0c, /* l */
+    0x0c, /* nge */
+    0x0d, /* nl */
+    0x0d, /* ge */
+    0x0e, /* le */
+    0x0e, /* ng */
+    0x0f, /* nle */
+    0x0f, /* g */
 };
 
 static const uint8_t segment_prefixes[] = {
- 0x26, /* es */
- 0x2e, /* cs */
- 0x36, /* ss */
- 0x3e, /* ds */
- 0x64, /* fs */
- 0x65  /* gs */
+    0x26, /* es */
+    0x2e, /* cs */
+    0x36, /* ss */
+    0x3e, /* ds */
+    0x64, /* fs */
+    0x65  /* gs */
 };
 
 static const ASMInstr asm_instrs[] = {

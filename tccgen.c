@@ -26,12 +26,15 @@
 /* loc : local variable index
    ind : output code index
    rsym: return symbol
-   anon_sym: anonymous symbol index
-*/
+   anon_sym: anonymous symbol index */
 ST_DATA int rsym, anon_sym, ind, loc;
 
-ST_DATA Section *text_section, *data_section, *bss_section; /* predefined sections */
-ST_DATA Section *cur_text_section; /* current section where function code is generated */
+/* predefined sections */
+ST_DATA Section *text_section, *data_section, *bss_section;
+
+/* current section where function code is generated */
+ST_DATA Section *cur_text_section;
+
 #ifdef CONFIG_TCC_ASM
 ST_DATA Section *last_text_section; /* to handle .previous asm directive */
 #endif
@@ -55,18 +58,30 @@ ST_DATA Sym *define_stack;
 ST_DATA Sym *global_label_stack;
 ST_DATA Sym *local_label_stack;
 
-ST_DATA int vla_sp_loc_tmp; /* vla_sp_loc is set to this when the value won't be needed later */
-ST_DATA int vla_sp_root_loc; /* vla_sp_loc for SP before any VLAs were pushed */
-ST_DATA int *vla_sp_loc; /* Pointer to variable holding location to store stack pointer on the stack when modifying stack pointer */
+/* vla_sp_loc is set to this when the value won't be needed later */
+ST_DATA int vla_sp_loc_tmp;
+/* vla_sp_loc for SP before any VLAs were pushed */
+ST_DATA int vla_sp_root_loc;
+/* Pointer to variable holding location to store stack pointer on the stack
+   when modifying stack pointer */
+ST_DATA int *vla_sp_loc;
+
 ST_DATA int vla_flags; /* VLA_* flags */
 
 ST_DATA SValue __vstack[1+VSTACK_SIZE], *vtop;
 
-ST_DATA int const_wanted; /* true if constant wanted */
-ST_DATA int nocode_wanted; /* true if no code generation wanted for an expression */
-ST_DATA int global_expr;  /* true if compound literals must be allocated globally (used during initializers parsing */
-ST_DATA CType func_vt; /* current function return type (used by return instruction) */
-ST_DATA int func_var; /* true if current function is variadic (used by return instruction) */
+/* true if constant wanted */
+ST_DATA int const_wanted;
+/* true if no code generation wanted for an expression */
+ST_DATA int nocode_wanted;
+/* true if compound literals must be allocated globally (used during
+   initializers parsing) */
+ST_DATA int global_expr;
+
+/* current function return type (used by return instruction) */
+ST_DATA CType func_vt;
+/* true if current function is variadic (used by return instruction) */
+ST_DATA int func_var;
 ST_DATA int func_vc;
 ST_DATA int last_line_num, last_ind, func_ind; /* debug last line number and pc */
 ST_DATA char *funcname;
@@ -99,7 +114,8 @@ ST_INLN int is_float(int t)
 {
     int bt;
     bt = t & VT_BTYPE;
-    return bt == VT_LDOUBLE || bt == VT_DOUBLE || bt == VT_FLOAT || bt == VT_QFLOAT;
+    return bt == VT_LDOUBLE || bt == VT_DOUBLE || bt == VT_FLOAT
+        || bt == VT_QFLOAT;
 }
 
 /* we use our own 'finite' function to avoid potential problems with
@@ -162,7 +178,8 @@ ST_FUNC Sym *sym_push2(Sym **ps, int v, int t, long c)
     Sym *s;
     if (ps == &local_stack) {
         for (s = *ps; s && s != scope_stack_bottom; s = s->prev)
-            if (!(v & SYM_FIELD) && (v & ~SYM_STRUCT) < SYM_FIRST_ANOM && s->v == v)
+            if (!(v & SYM_FIELD) && (v & ~SYM_STRUCT) < SYM_FIRST_ANOM
+                && s->v == v)
                 tcc_error("incompatible types for redefinition of '%s'",
                           get_tok_str(v, NULL));
     }
@@ -403,7 +420,8 @@ static inline void vpushsym(CType *type, Sym *sym)
 }
 
 /* Return a static symbol pointing to a section */
-ST_FUNC Sym *get_sym_ref(CType *type, Section *sec, unsigned long offset, unsigned long size)
+ST_FUNC Sym *get_sym_ref(CType *type, Section *sec, unsigned long offset,
+                         unsigned long size)
 {
     int v;
     Sym *sym;
@@ -417,7 +435,8 @@ ST_FUNC Sym *get_sym_ref(CType *type, Section *sec, unsigned long offset, unsign
 }
 
 /* push a reference to a section offset by adding a dummy symbol */
-static void vpush_ref(CType *type, Section *sec, unsigned long offset, unsigned long size)
+static void vpush_ref(CType *type, Section *sec, unsigned long offset,
+                      unsigned long size)
 {
     vpushsym(type, get_sym_ref(type, sec, offset, size));
 }
@@ -619,11 +638,10 @@ ST_FUNC int get_reg(int rc)
     SValue *p;
 
     /* find a free register */
-    for(r=0;r<NB_REGS;r++) {
+    for(r = 0; r < NB_REGS; r++) {
         if (reg_classes[r] & rc) {
-            for(p=vstack;p<=vtop;p++) {
-                if ((p->r & VT_VALMASK) == r ||
-                    (p->r2 & VT_VALMASK) == r)
+            for(p = vstack; p <= vtop; p++) {
+                if ((p->r & VT_VALMASK) == r || (p->r2 & VT_VALMASK) == r)
                     goto notfound;
             }
             return r;
@@ -634,7 +652,7 @@ ST_FUNC int get_reg(int rc)
     /* no register left : free the first one on the stack (VERY
        IMPORTANT to start from the bottom to ensure that we don't
        spill registers used in gen_opi()) */
-    for(p=vstack;p<=vtop;p++) {
+    for(p = vstack; p <= vtop; p++) {
         /* look at second register (if long long) */
         r = p->r2 & VT_VALMASK;
         if (r < VT_CONST && (reg_classes[r] & rc))
@@ -656,7 +674,7 @@ ST_FUNC void save_regs(int n)
     int r;
     SValue *p, *p1;
     p1 = vtop - n;
-    for(p = vstack;p <= p1; p++) {
+    for(p = vstack; p <= p1; p++) {
         r = p->r & VT_VALMASK;
         if (r < VT_CONST) {
             save_reg(r);
@@ -664,8 +682,8 @@ ST_FUNC void save_regs(int n)
     }
 }
 
-/* move register 's' (of type 't') to 'r', and flush previous value of r to memory
-   if needed */
+/* move register 's' (of type 't') to 'r', and flush previous value of r
+   to memory if needed */
 static void move_reg(int r, int s, int t)
 {
     SValue sv;
@@ -2266,15 +2284,13 @@ static int compare_types(CType *type1, CType *type2, int unqualified)
 }
 
 /* return true if type1 and type2 are exactly the same (including
-   qualifiers).
-*/
+   qualifiers). */
 static int is_compatible_types(CType *type1, CType *type2)
 {
     return compare_types(type1,type2,0);
 }
 
-/* return true if type1 and type2 are the same (ignoring qualifiers).
-*/
+/* return true if type1 and type2 are the same (ignoring qualifiers). */
 static int is_compatible_parameter_types(CType *type1, CType *type2)
 {
     return compare_types(type1,type2,1);
@@ -2284,8 +2300,8 @@ static int is_compatible_parameter_types(CType *type1, CType *type2)
    printed in the type */
 /* XXX: union */
 /* XXX: add array and function pointers */
-static void type_to_str(char *buf, int buf_size,
-                 CType *type, const char *varstr)
+static void type_to_str(char *buf, int buf_size, CType *type,
+                        const char *varstr)
 {
     int bt, v, t;
     Sym *s, *sa;
@@ -3042,8 +3058,7 @@ ST_FUNC int is_btype_size(int bt)
 }
 
 /* return 0 if no type declaration. otherwise, return the basic type
-   and skip it.
- */
+   and skip it. */
 static int parse_btype(CType *type, AttributeDef *ad)
 {
     int t, u, bt_size, complete, type_found, typespec_found;
@@ -3414,8 +3429,7 @@ static void post_type(CType *type, AttributeDef *ad)
    in 'type'. 'td' is a bitmask indicating which kind of type decl is
    expected. 'type' should contain the basic type. 'ad' is the
    attribute definition of the basic type. It can be modified by
-   type_decl().
- */
+   type_decl(). */
 static void type_decl(CType *type, AttributeDef *ad, int *v, int td)
 {
     Sym *s;
@@ -3566,8 +3580,7 @@ static void gfunc_param_typed(Sym *func, Sym *arg)
     }
 }
 
-/* parse an expression of the form '(type)' or '(expr)' and return its
-   type */
+/* parse an expression of the form '(type)' or '(expr)' and return its type */
 static void parse_expr_type(CType *type)
 {
     int n;
@@ -5002,8 +5015,7 @@ static void block(int *bsym, int *csym, int *case_sym, int *def_sym,
    value. 'size_only' is true if only size info is needed (only used
    in arrays) */
 static void decl_designator(CType *type, Section *sec, unsigned long c,
-                            int *cur_index, Sym **cur_field,
-                            int size_only)
+                            int *cur_index, Sym **cur_field, int size_only)
 {
     Sym *s, *f;
     int notfirst, index, index_last, align, l, nb_elems, elem_size;
