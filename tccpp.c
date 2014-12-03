@@ -257,7 +257,7 @@ ST_FUNC TokenSym *tok_alloc(const char *str, int len)
     unsigned int h;
 
     h = TOK_HASH_INIT;
-    for(i=0;i<len;i++)
+    for(i = 0; i < len; i++)
         h = TOK_HASH_FUNC(h, ((unsigned char *)str)[i]);
     h &= (TOK_HASH_SIZE - 1);
 
@@ -449,13 +449,11 @@ static int handle_stray_noerror(void)
         } else if (ch == '\r') {
             inp();
             if (ch != '\n')
-                goto fail;
+                return 1;
             file->line_num++;
             inp();
-        } else {
-        fail:
+        } else
             return 1;
-        }
     }
     return 0;
 }
@@ -654,8 +652,7 @@ static inline int check_space(int t, int *spc)
 }
 
 /* parse a string without interpreting escapes */
-static uint8_t *parse_pp_string(uint8_t *p,
-                                int sep, CString *str)
+static uint8_t *parse_pp_string(uint8_t *p, int sep, CString *str)
 {
     int c;
     p++;
@@ -829,8 +826,7 @@ ST_FUNC void restore_parse_state(ParseState *s)
     tokc = s->tokc;
 }
 
-/* return the number of additional 'ints' necessary to store the
-   token */
+/* return the number of additional 'ints' necessary to store the token */
 static inline int tok_ext_size(int t)
 {
     switch(t) {
@@ -1065,13 +1061,13 @@ ST_INLN void define_push(int v, int macro_type, int *str, Sym *first_arg)
 }
 
 /* undefined a define symbol. Its name is just set to zero */
-ST_FUNC void define_undef(Sym *s)
+ST_FUNC void define_undef(Sym *sym)
 {
     int v;
-    v = s->v;
+    v = sym->v;
     if (v >= TOK_IDENT && v < tok_ident)
         table_ident[v - TOK_IDENT]->sym_define = NULL;
-    s->v = 0;
+    sym->v = 0;
 }
 
 ST_INLN Sym *define_find(int v)
@@ -1082,14 +1078,14 @@ ST_INLN Sym *define_find(int v)
     return table_ident[v]->sym_define;
 }
 
-/* free define stack until top reaches 'b' */
-ST_FUNC void free_defines(Sym *b)
+/* free define stack until top reaches 'sym' */
+ST_FUNC void free_defines(Sym *sym)
 {
     Sym *top, *top1;
     int v;
 
     top = define_stack;
-    while (top != b) {
+    while (top != sym) {
         top1 = top->prev;
         /* do not free args or predefined defines */
         if (top->d)
@@ -1100,7 +1096,7 @@ ST_FUNC void free_defines(Sym *b)
         sym_free(top);
         top = top1;
     }
-    define_stack = b;
+    define_stack = sym;
 }
 
 /* label lookup */
@@ -1137,7 +1133,8 @@ ST_FUNC void label_pop(Sym **ptop, Sym *slast)
     for(s = *ptop; s != slast; s = s1) {
         s1 = s->prev;
         if (s->r == LABEL_DECLARED) {
-            tcc_warning("label '%s' declared but not used", get_tok_str(s->v, NULL));
+            tcc_warning("label '%s' declared but not used",
+                        get_tok_str(s->v, NULL));
         } else if (s->r == LABEL_FORWARD) {
                 tcc_error("label '%s' used but not defined",
                       get_tok_str(s->v, NULL));
@@ -1239,7 +1236,8 @@ ST_FUNC void parse_define(void)
                 next_nomacro();
             }
             if (varg < TOK_IDENT)
-                tcc_error( "\'%s\' may not appear in parameter list", get_tok_str(varg, NULL));
+                tcc_error( "\'%s\' may not appear in parameter list",
+                           get_tok_str(varg, NULL));
             s = sym_push2(&define_stack, varg | SYM_FIELD, is_vaargs, 0);
             *ps = s;
             ps = &s->next;
@@ -1301,29 +1299,31 @@ static inline int hash_cached_include(const char *filename)
     return h;
 }
 
-static CachedInclude *search_cached_include(TCCState *s1, const char *filename)
+static CachedInclude *search_cached_include(TCCState *s, const char *filename)
 {
     CachedInclude *e;
     int i, h;
+
     h = hash_cached_include(filename);
-    i = s1->cached_includes_hash[h];
+    i = s->cached_includes_hash[h];
     for(;;) {
         if (i == 0)
             break;
-        e = s1->cached_includes[i - 1];
-        if (0 == PATHCMP(e->filename, filename))
+        e = s->cached_includes[i - 1];
+        if (PATHCMP(e->filename, filename) == 0)
             return e;
         i = e->hash_next;
     }
     return NULL;
 }
 
-static inline void add_cached_include(TCCState *s1, const char *filename, int ifndef_macro)
+static inline void add_cached_include(TCCState *s, const char *filename,
+                                      int ifndef_macro)
 {
     CachedInclude *e;
     int h;
 
-    if (search_cached_include(s1, filename))
+    if (search_cached_include(s, filename))
         return;
 #ifdef INC_DEBUG
     printf("adding cached '%s' %s\n", filename, get_tok_str(ifndef_macro, NULL));
@@ -1331,14 +1331,14 @@ static inline void add_cached_include(TCCState *s1, const char *filename, int if
     e = tcc_malloc(sizeof(CachedInclude) + strlen(filename));
     strcpy(e->filename, filename);
     e->ifndef_macro = ifndef_macro;
-    dynarray_add((void ***)&s1->cached_includes, &s1->nb_cached_includes, e);
+    dynarray_add((void ***)&s->cached_includes, &s->nb_cached_includes, e);
     /* add in hash table */
     h = hash_cached_include(filename);
-    e->hash_next = s1->cached_includes_hash[h];
-    s1->cached_includes_hash[h] = s1->nb_cached_includes;
+    e->hash_next = s->cached_includes_hash[h];
+    s->cached_includes_hash[h] = s->nb_cached_includes;
 }
 
-static void pragma_parse(TCCState *s1)
+static void pragma_parse(TCCState *s)
 {
     int val;
 
@@ -1355,19 +1355,19 @@ static void pragma_parse(TCCState *s1)
         skip('(');
         if (tok == TOK_ASM_pop) {
             next();
-            if (s1->pack_stack_ptr <= s1->pack_stack) {
+            if (s->pack_stack_ptr <= s->pack_stack) {
             stk_error:
                 tcc_error("out of pack stack");
             }
-            s1->pack_stack_ptr--;
+            s->pack_stack_ptr--;
         } else {
             val = 0;
             if (tok != ')') {
                 if (tok == TOK_ASM_push) {
                     next();
-                    if (s1->pack_stack_ptr >= s1->pack_stack + PACK_STACK_SIZE - 1)
+                    if (s->pack_stack_ptr >= s->pack_stack + PACK_STACK_SIZE - 1)
                         goto stk_error;
-                    s1->pack_stack_ptr++;
+                    s->pack_stack_ptr++;
                     skip(',');
                 }
                 if (tok != TOK_CINT) {
@@ -1379,7 +1379,7 @@ static void pragma_parse(TCCState *s1)
                     goto pack_error;
                 next();
             }
-            *s1->pack_stack_ptr = val;
+            *s->pack_stack_ptr = val;
             skip(')');
         }
     }
@@ -1388,14 +1388,14 @@ static void pragma_parse(TCCState *s1)
 /* is_bof is true if first non space token at beginning of file */
 ST_FUNC void preprocess(int is_bof)
 {
-    TCCState *s1 = tcc_state;
+    TCCState *s = tcc_state;
     int i, c, n, saved_parse_flags;
     char buf[1024], *q;
-    Sym *s;
+    Sym *sym;
 
     saved_parse_flags = parse_flags;
-    parse_flags = PARSE_FLAG_PREPROCESS | PARSE_FLAG_TOK_NUM |
-        PARSE_FLAG_LINEFEED;
+    parse_flags = PARSE_FLAG_PREPROCESS | PARSE_FLAG_TOK_NUM
+        | PARSE_FLAG_LINEFEED;
     next_nomacro();
  redo:
     switch(tok) {
@@ -1405,10 +1405,10 @@ ST_FUNC void preprocess(int is_bof)
         break;
     case TOK_UNDEF:
         next_nomacro();
-        s = define_find(tok);
+        sym = define_find(tok);
         /* undefine symbol by putting an invalid name */
-        if (s)
-            define_undef(s);
+        if (sym)
+            define_undef(sym);
         break;
     case TOK_INCLUDE:
     case TOK_INCLUDE_NEXT:
@@ -1471,12 +1471,12 @@ ST_FUNC void preprocess(int is_bof)
             }
         }
 
-        if (s1->include_stack_ptr >= s1->include_stack + INCLUDE_STACK_SIZE)
+        if (s->include_stack_ptr >= s->include_stack + INCLUDE_STACK_SIZE)
             tcc_error("#include recursion too deep");
         /* store current file in stack, but increment stack later below */
-        *s1->include_stack_ptr = file;
+        *s->include_stack_ptr = file;
 
-        n = s1->nb_include_paths + s1->nb_sysinclude_paths;
+        n = s->nb_include_paths + s->nb_sysinclude_paths;
         for (i = -2; i < n; ++i) {
             char buf1[sizeof file->filename];
             CachedInclude *e;
@@ -1499,10 +1499,10 @@ ST_FUNC void preprocess(int is_bof)
 
             } else {
                 /* search in all the include paths */
-                if (i < s1->nb_include_paths)
-                    path = s1->include_paths[i];
+                if (i < s->nb_include_paths)
+                    path = s->include_paths[i];
                 else
-                    path = s1->sysinclude_paths[i - s1->nb_include_paths];
+                    path = s->sysinclude_paths[i - s->nb_include_paths];
                 pstrcpy(buf1, sizeof(buf1), path);
                 pstrcat(buf1, sizeof(buf1), "/");
             }
@@ -1510,15 +1510,16 @@ ST_FUNC void preprocess(int is_bof)
             pstrcat(buf1, sizeof(buf1), buf);
 
             if (tok == TOK_INCLUDE_NEXT)
-                for (f = s1->include_stack_ptr; f >= s1->include_stack; --f)
-                    if (0 == PATHCMP((*f)->filename, buf1)) {
+                for (f = s->include_stack_ptr; f >= s->include_stack; --f)
+                    if (PATHCMP((*f)->filename, buf1) == 0) {
 #ifdef INC_DEBUG
-                        printf("%s: #include_next skipping %s\n", file->filename, buf1);
+                        printf("%s: #include_next skipping %s\n",
+                               file->filename, buf1);
 #endif
                         goto include_trynext;
                     }
 
-            e = search_cached_include(s1, buf1);
+            e = search_cached_include(s, buf1);
             if (e && define_find(e->ifndef_macro)) {
                 /* no need to parse the include because the 'ifndef macro'
                    is defined */
@@ -1528,7 +1529,7 @@ ST_FUNC void preprocess(int is_bof)
                 goto include_done;
             }
 
-            if (tcc_open(s1, buf1) < 0)
+            if (tcc_open(s, buf1) < 0)
 include_trynext:
                 continue;
 
@@ -1536,12 +1537,12 @@ include_trynext:
             printf("%s: including %s\n", file->prev->filename, file->filename);
 #endif
             /* update target deps */
-            dynarray_add((void ***)&s1->target_deps, &s1->nb_target_deps,
-                    tcc_strdup(buf1));
+            dynarray_add((void ***)&s->target_deps, &s->nb_target_deps,
+                         tcc_strdup(buf1));
             /* push current file in stack */
-            ++s1->include_stack_ptr;
+            ++s->include_stack_ptr;
             /* add include file debug info */
-            if (s1->do_debug)
+            if (s->do_debug)
                 put_stabs(file->filename, N_BINCL, 0, 0, 0);
             tok_flags |= TOK_FLAG_BOF | TOK_FLAG_BOL;
             ch = file->buf_ptr[0];
@@ -1572,30 +1573,30 @@ include_done:
         }
         c = (define_find(tok) != 0) ^ c;
     do_if:
-        if (s1->ifdef_stack_ptr >= s1->ifdef_stack + IFDEF_STACK_SIZE)
+        if (s->ifdef_stack_ptr >= s->ifdef_stack + IFDEF_STACK_SIZE)
             tcc_error("memory full (ifdef)");
-        *s1->ifdef_stack_ptr++ = c;
+        *s->ifdef_stack_ptr++ = c;
         goto test_skip;
     case TOK_ELSE:
-        if (s1->ifdef_stack_ptr == s1->ifdef_stack)
+        if (s->ifdef_stack_ptr == s->ifdef_stack)
             tcc_error("#else without matching #if");
-        if (s1->ifdef_stack_ptr[-1] & 2)
+        if (s->ifdef_stack_ptr[-1] & 2)
             tcc_error("#else after #else");
-        c = (s1->ifdef_stack_ptr[-1] ^= 3);
+        c = (s->ifdef_stack_ptr[-1] ^= 3);
         goto test_else;
     case TOK_ELIF:
-        if (s1->ifdef_stack_ptr == s1->ifdef_stack)
+        if (s->ifdef_stack_ptr == s->ifdef_stack)
             tcc_error("#elif without matching #if");
-        c = s1->ifdef_stack_ptr[-1];
+        c = s->ifdef_stack_ptr[-1];
         if (c > 1)
             tcc_error("#elif after #else");
         /* last #if/#elif expression was true: we skip */
         if (c == 1)
             goto skip;
         c = expr_preprocess();
-        s1->ifdef_stack_ptr[-1] = c;
+        s->ifdef_stack_ptr[-1] = c;
     test_else:
-        if (s1->ifdef_stack_ptr == file->ifdef_stack_ptr + 1)
+        if (s->ifdef_stack_ptr == file->ifdef_stack_ptr + 1)
             file->ifndef_macro = 0;
     test_skip:
         if (!(c & 1)) {
@@ -1606,13 +1607,13 @@ include_done:
         }
         break;
     case TOK_ENDIF:
-        if (s1->ifdef_stack_ptr <= file->ifdef_stack_ptr)
+        if (s->ifdef_stack_ptr <= file->ifdef_stack_ptr)
             tcc_error("#endif without matching #if");
-        s1->ifdef_stack_ptr--;
+        s->ifdef_stack_ptr--;
         /* '#ifndef macro' was at the start of file. Now we check if
            an '#endif' is exactly at the end of file */
         if (file->ifndef_macro &&
-            s1->ifdef_stack_ptr == file->ifdef_stack_ptr) {
+            s->ifdef_stack_ptr == file->ifdef_stack_ptr) {
             file->ifndef_macro_saved = file->ifndef_macro;
             /* need to set to zero to avoid false matches if another
                #ifndef at middle of file */
@@ -1658,7 +1659,7 @@ include_done:
             tcc_warning("#warning %s", buf);
         break;
     case TOK_PRAGMA:
-        pragma_parse(s1);
+        pragma_parse(s);
         break;
     default:
         if (tok == TOK_LINEFEED || tok == '!' || tok == TOK_PPNUM) {
@@ -1666,7 +1667,8 @@ include_done:
                to emulate cpp behaviour */
         } else {
             if (!(saved_parse_flags & PARSE_FLAG_ASM_COMMENTS))
-                tcc_warning("Ignoring unknown preprocessing directive #%s", get_tok_str(tok, &tokc));
+                tcc_warning("Ignoring unknown preprocessing directive #%s",
+                            get_tok_str(tok, &tokc));
             else {
                 /* this is a gas line comment in an 'S' file. */
                 file->buf_ptr = parse_line_comment(file->buf_ptr);
@@ -1777,16 +1779,16 @@ static void parse_escape_string(CString *outstr, const uint8_t *buf, int is_long
         }
         p++;
     add_char_nonext:
-        if (!is_long)
-            cstr_ccat(outstr, c);
-        else
+        if (is_long)
             cstr_wccat(outstr, c);
+        else
+            cstr_ccat(outstr, c);
     }
     /* add a trailing '\0' */
-    if (!is_long)
-        cstr_ccat(outstr, '\0');
-    else
+    if (is_long)
         cstr_wccat(outstr, '\0');
+    else
+        cstr_ccat(outstr, '\0');
 }
 
 /* we use 64 bit numbers */
@@ -1797,7 +1799,7 @@ static void bn_lshift(unsigned int *bn, int shift, int or_val)
 {
     int i;
     unsigned int v;
-    for(i=0;i<BN_SIZE;i++) {
+    for(i = 0; i < BN_SIZE; i++) {
         v = bn[i];
         bn[i] = (v << shift) | or_val;
         or_val = v >> (32 - shift);
@@ -1807,9 +1809,8 @@ static void bn_lshift(unsigned int *bn, int shift, int or_val)
 static void bn_zero(unsigned int *bn)
 {
     int i;
-    for(i=0;i<BN_SIZE;i++) {
+    for(i = 0; i < BN_SIZE; i++)
         bn[i] = 0;
-    }
 }
 
 /* parse number in null terminated string 'p' and return it in the
@@ -2667,8 +2668,8 @@ static char const ab_month_name[12][4] =
    result to (tok_str,tok_len). 'nested_list' is the list of all
    macros we got inside to avoid recursing. Return non zero if no
    substitution needs to be done */
-static int macro_subst_tok(TokenString *tok_str,
-                           Sym **nested_list, Sym *s, struct macro_level **can_read_stream)
+static int macro_subst_tok(TokenString *tok_str, Sym **nested_list, Sym *s,
+                           struct macro_level **can_read_stream)
 {
     Sym *args, *sa, *sa1;
     int mstr_allocated, parlevel, *mstr, t, t1, spc;
@@ -2920,9 +2921,8 @@ static inline int *macro_twosharps(const int *macro_str)
 }
 
 
-/* do macro substitution of macro_str and add result to
-   (tok_str,tok_len). 'nested_list' is the list of all macros we got
-   inside to avoid recursing. */
+/* do macro substitution of macro_str and add result to (tok_str,tok_len).
+   'nested_list' is the list of all macros we got inside to avoid recursing. */
 static void macro_subst(TokenString *tok_str, Sym **nested_list,
                         const int *macro_str, struct macro_level ** can_read_stream)
 {
@@ -2943,7 +2943,7 @@ static void macro_subst(TokenString *tok_str, Sym **nested_list,
     spc = 0;
     force_blank = 0;
 
-    while (1) {
+    for(;;) {
         /* NOTE: ptr == NULL can only happen if tokens are read from
            file stream due to a macro function call */
         if (ptr == NULL)
@@ -3058,16 +3058,14 @@ ST_INLN void unget_tok(int last_tok)
 {
     int i, n;
     int *q;
-    if (unget_buffer_enabled)
-      {
+
+    if (unget_buffer_enabled) {
         /* assert(macro_ptr == unget_saved_buffer + 1);
 	   assert(*macro_ptr == 0);  */
-      }
-    else
-      {
+    } else {
 	unget_saved_macro_ptr = macro_ptr;
 	unget_buffer_enabled = 1;
-      }
+    }
     q = unget_saved_buffer;
     macro_ptr = q;
     *q++ = tok;
@@ -3100,7 +3098,7 @@ ST_FUNC void preprocess_new(void)
     const char *p, *r;
 
     /* init isid table */
-    for(i=CH_EOF;i<256;i++)
+    for(i = CH_EOF; i < 256; i++)
         isidnum_table[i-CH_EOF] = isid(i) || isnum(i);
 
     /* add all tokens */
@@ -3122,15 +3120,15 @@ ST_FUNC void preprocess_new(void)
 }
 
 /* Preprocess the current file */
-ST_FUNC int tcc_preprocess(TCCState *s1)
+ST_FUNC int tcc_preprocess(TCCState *s)
 {
     Sym *define_start;
 
     BufferedFile *file_ref, **iptr, **iptr_new;
     int token_seen, line_ref, d;
-    const char *s;
+    const char *str;
 
-    preprocess_init(s1);
+    preprocess_init(s);
     define_start = define_stack;
     ch = file->buf_ptr[0];
     tok_flags = TOK_FLAG_BOL | TOK_FLAG_BOF;
@@ -3139,7 +3137,7 @@ ST_FUNC int tcc_preprocess(TCCState *s1)
     token_seen = 0;
     line_ref = 0;
     file_ref = NULL;
-    iptr = s1->include_stack_ptr;
+    iptr = s->include_stack_ptr;
 
     for (;;) {
         next();
@@ -3156,24 +3154,24 @@ ST_FUNC int tcc_preprocess(TCCState *s1)
             d = file->line_num - line_ref;
             if (file != file_ref || d < 0 || d >= 8) {
 print_line:
-                iptr_new = s1->include_stack_ptr;
-                s = iptr_new > iptr ? " 1"
-                  : iptr_new < iptr ? " 2"
-                  : iptr_new > s1->include_stack ? " 3"
-                  : ""
-                  ;
+                iptr_new = s->include_stack_ptr;
+                str = iptr_new > iptr ? " 1"
+                    : iptr_new < iptr ? " 2"
+                    : iptr_new > s->include_stack ? " 3"
+                    : "" ;
                 iptr = iptr_new;
-                fprintf(s1->ppfp, "# %d \"%s\"%s\n", file->line_num, file->filename, s);
+                fprintf(s->ppfp, "# %d \"%s\"%s\n",
+                        file->line_num, file->filename, str);
             } else {
-                while (d)
-                    fputs("\n", s1->ppfp), --d;
+                while (d--)
+                    fputs("\n", s->ppfp);
             }
             line_ref = (file_ref = file)->line_num;
             token_seen = tok != TOK_LINEFEED;
             if (!token_seen)
                 continue;
         }
-        fputs(get_tok_str(tok, &tokc), s1->ppfp);
+        fputs(get_tok_str(tok, &tokc), s->ppfp);
     }
     free_defines(define_start);
     return 0;

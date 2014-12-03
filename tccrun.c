@@ -47,14 +47,14 @@ static void win64_add_function_table(TCCState *s1);
 /* Do all relocations (needed before using tcc_get_symbol())
    Returns -1 on error. */
 
-LIBTCCAPI int tcc_relocate(TCCState *s1, void *ptr)
+LIBTCCAPI int tcc_relocate(TCCState *s, void *ptr)
 {
     int ret;
 
     if (TCC_RELOCATE_AUTO != ptr)
-        return tcc_relocate_ex(s1, ptr);
+        return tcc_relocate_ex(s, ptr);
 
-    ret = tcc_relocate_ex(s1, NULL);
+    ret = tcc_relocate_ex(s, NULL);
     if (ret < 0)
         return ret;
 
@@ -65,49 +65,49 @@ LIBTCCAPI int tcc_relocate(TCCState *s1, void *ptr)
         char tmpfname[] = "/tmp/.tccrunXXXXXX";
         int fd = mkstemp (tmpfname);
 
-        s1->mem_size = ret;
+        s->mem_size = ret;
         unlink (tmpfname);
-        ftruncate (fd, s1->mem_size);
+        ftruncate (fd, s->mem_size);
 
-        s1->write_mem = mmap (NULL, ret, PROT_READ|PROT_WRITE,
+        s->write_mem = mmap (NULL, ret, PROT_READ|PROT_WRITE,
             MAP_SHARED, fd, 0);
-        if (s1->write_mem == MAP_FAILED)
+        if (s->write_mem == MAP_FAILED)
             tcc_error("/tmp not writeable");
 
-        s1->runtime_mem = mmap (NULL, ret, PROT_READ|PROT_EXEC,
+        s->runtime_mem = mmap (NULL, ret, PROT_READ|PROT_EXEC,
             MAP_SHARED, fd, 0);
-        if (s1->runtime_mem == MAP_FAILED)
+        if (s->runtime_mem == MAP_FAILED)
             tcc_error("/tmp not executable");
 
-        ret = tcc_relocate_ex(s1, s1->write_mem);
+        ret = tcc_relocate_ex(s, s->write_mem);
     }
 #else
-    s1->runtime_mem = tcc_malloc(ret);
-    ret = tcc_relocate_ex(s1, s1->runtime_mem);
+    s->runtime_mem = tcc_malloc(ret);
+    ret = tcc_relocate_ex(s, s->runtime_mem);
 #endif
     return ret;
 }
 
 /* launch the compiled program with the given arguments */
-LIBTCCAPI int tcc_run(TCCState *s1, int argc, char **argv)
+LIBTCCAPI int tcc_run(TCCState *s, int argc, char **argv)
 {
     int (*prog_main)(int, char **);
     int ret;
 
-    if (tcc_relocate(s1, TCC_RELOCATE_AUTO) < 0)
+    if (tcc_relocate(s, TCC_RELOCATE_AUTO) < 0)
         return -1;
 
-    prog_main = tcc_get_symbol_err(s1, s1->runtime_main);
+    prog_main = tcc_get_symbol_err(s, s->runtime_main);
 
 #ifdef CONFIG_TCC_BACKTRACE
-    if (s1->do_debug) {
+    if (s->do_debug) {
         set_exception_handler();
         rt_prog_main = prog_main;
     }
 #endif
 
 #ifdef CONFIG_TCC_BCHECK
-    if (s1->do_bounds_check) {
+    if (s->do_bounds_check) {
         void (*bound_init)(void);
         void (*bound_exit)(void);
         void (*bound_new_region)(void *p, unsigned long size);
@@ -115,22 +115,22 @@ LIBTCCAPI int tcc_run(TCCState *s1, int argc, char **argv)
         int i;
 
         /* set error function */
-        rt_bound_error_msg = tcc_get_symbol_err(s1, "__bound_error_msg");
+        rt_bound_error_msg = tcc_get_symbol_err(s, "__bound_error_msg");
         /* XXX: use .init section so that it also work in binary ? */
-        bound_init = tcc_get_symbol_err(s1, "__bound_init");
-        bound_exit = tcc_get_symbol_err(s1, "__bound_exit");
-        bound_new_region = tcc_get_symbol_err(s1, "__bound_new_region");
-        bound_delete_region = tcc_get_symbol_err(s1, "__bound_delete_region");
+        bound_init = tcc_get_symbol_err(s, "__bound_init");
+        bound_exit = tcc_get_symbol_err(s, "__bound_exit");
+        bound_new_region = tcc_get_symbol_err(s, "__bound_new_region");
+        bound_delete_region = tcc_get_symbol_err(s, "__bound_delete_region");
         bound_init();
         /* mark argv area as valid */
         bound_new_region(argv, argc*sizeof(argv[0]));
-        for (i=0; i<argc; ++i)
+        for (i = 0; i < argc; ++i)
             bound_new_region(argv[i], strlen(argv[i]));
 
         ret = (*prog_main)(argc, argv);
 
         /* unmark argv area */
-        for (i=0; i<argc; ++i)
+        for (i = 0; i < argc; ++i)
             bound_delete_region(argv[i]);
         bound_delete_region(argv);
 
@@ -143,72 +143,74 @@ LIBTCCAPI int tcc_run(TCCState *s1, int argc, char **argv)
 
 /* relocate code. Return -1 on error, required size if ptr is NULL,
    otherwise copy code into buffer passed by the caller */
-static int tcc_relocate_ex(TCCState *s1, void *ptr)
+static int tcc_relocate_ex(TCCState *s, void *ptr)
 {
-    Section *s;
+    Section *sec;
     unsigned long offset, length;
     addr_t mem;
     int i;
 
-    if (NULL == ptr) {
-        s1->nb_errors = 0;
+    if (!ptr) {
+        s->nb_errors = 0;
 #ifdef TCC_TARGET_PE
-        pe_output_file(s1, NULL);
+        pe_output_file(s, NULL);
 #else
-        tcc_add_runtime(s1);
+        tcc_add_runtime(s);
         relocate_common_syms();
-        tcc_add_linker_symbols(s1);
-        build_got_entries(s1);
+        tcc_add_linker_symbols(s);
+        build_got_entries(s);
 #endif
-        if (s1->nb_errors)
+        if (s->nb_errors)
             return -1;
     }
 
-    offset = 0, mem = (addr_t)ptr;
-    for(i = 1; i < s1->nb_sections; i++) {
-        s = s1->sections[i];
-        if (0 == (s->sh_flags & SHF_ALLOC))
+    offset = 0;
+    mem = (addr_t)ptr;
+    for(i = 1; i < s->nb_sections; i++) {
+        sec = s->sections[i];
+        if (!(sec->sh_flags & SHF_ALLOC))
             continue;
-        length = s->data_offset;
-        s->sh_addr = mem ? (mem + offset + 15) & ~15 : 0;
+        length = sec->data_offset;
+        /* FIXME: define and use a macro to round */
+        sec->sh_addr = mem ? (mem + offset + 15) & ~15 : 0;
         offset = (offset + length + 15) & ~15;
     }
     offset += 16;
 
     /* relocate symbols */
-    relocate_syms(s1, 1);
-    if (s1->nb_errors)
+    relocate_syms(s, 1);
+    if (s->nb_errors)
         return -1;
 
-    if (0 == mem)
+    if (!mem)
         return offset;
 
     /* relocate each section */
-    for(i = 1; i < s1->nb_sections; i++) {
-        s = s1->sections[i];
-        if (s->reloc)
-            relocate_section(s1, s);
+    for(i = 1; i < s->nb_sections; i++) {
+        sec = s->sections[i];
+        if (sec->reloc)
+            relocate_section(s, sec);
     }
-    relocate_plt(s1);
+    relocate_plt(s);
 
-    for(i = 1; i < s1->nb_sections; i++) {
-        s = s1->sections[i];
-        if (0 == (s->sh_flags & SHF_ALLOC))
+    for(i = 1; i < s->nb_sections; i++) {
+        sec = s->sections[i];
+        if (!(sec->sh_flags & SHF_ALLOC))
             continue;
-        length = s->data_offset;
-        // printf("%-12s %08x %04x\n", s->name, s->sh_addr, length);
-        ptr = (void*)s->sh_addr;
-        if (NULL == s->data || s->sh_type == SHT_NOBITS)
+        length = sec->data_offset;
+        // printf("%-12s %08x %04x\n", sec->name, sec->sh_addr, length);
+        ptr = (void*)sec->sh_addr;
+        if (!sec->data || sec->sh_type == SHT_NOBITS)
             memset(ptr, 0, length);
         else
-            memcpy(ptr, s->data, length);
+            memcpy(ptr, sec->data, length);
         /* mark executable sections as executable in memory */
-        if (s->sh_flags & SHF_EXECINSTR)
+        if (sec->sh_flags & SHF_EXECINSTR)
             set_pages_executable(ptr, length);
     }
 
 #ifdef _WIN64
-    win64_add_function_table(s1);
+    win64_add_function_table(s);
 #endif
     return 0;
 }
@@ -339,15 +341,12 @@ static addr_t rt_printline(addr_t wanted_pc, const char *msg)
 no_stabs:
     /* second pass: we try symtab symbols (no line number info) */
     incl_index = 0;
-    if (symtab_section)
-    {
+    if (symtab_section) {
         ElfW(Sym) *sym, *sym_end;
         int type;
 
         sym_end = (ElfW(Sym) *)(symtab_section->data + symtab_section->data_offset);
-        for(sym = (ElfW(Sym) *)symtab_section->data + 1;
-            sym < sym_end;
-            sym++) {
+        for(sym = (ElfW(Sym) *)symtab_section->data + 1; sym < sym_end; sym++) {
             type = ELFW(ST_TYPE)(sym->st_info);
             if (type == STT_FUNC || type == STT_GNU_IFUNC) {
                 if (wanted_pc >= sym->st_value &&
@@ -399,7 +398,7 @@ static void rt_error(ucontext_t *uc, const char *fmt, ...)
     va_end(ap);
     fprintf(stderr, "\n");
 
-    for(i=0;i<rt_num_callers;i++) {
+    for(i = 0; i < rt_num_callers; i++) {
         if (rt_get_caller_pc(&pc, uc, i) < 0)
             break;
         pc = rt_printline(pc, i ? "by" : "at");
@@ -613,7 +612,7 @@ static int rt_get_caller_pc(addr_t *paddr, ucontext_t *uc, int level)
     return -1;
 }
 
-#endif /* !__i386__ */
+#endif
 
 /* ------------------------------------------------------------- */
 #else /* WIN32 */
@@ -723,7 +722,7 @@ static TCCSyms tcc_syms[] = {
     { NULL, NULL },
 };
 
-ST_FUNC void *resolve_sym(TCCState *s1, const char *symbol)
+ST_FUNC void *resolve_sym(TCCState *s, const char *symbol)
 {
     TCCSyms *p;
     p = tcc_syms;
@@ -737,7 +736,7 @@ ST_FUNC void *resolve_sym(TCCState *s1, const char *symbol)
 
 #elif !defined(_WIN32)
 
-ST_FUNC void *resolve_sym(TCCState *s1, const char *sym)
+ST_FUNC void *resolve_sym(TCCState *s, const char *sym)
 {
     return dlsym(RTLD_DEFAULT, sym);
 }
