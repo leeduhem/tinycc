@@ -3081,17 +3081,17 @@ ST_INLN void unget_tok(int last_tok)
 
 /* better than nothing, but needs extension to handle '-E' option
    correctly too */
-ST_FUNC void preprocess_init(TCCState *s1)
+ST_FUNC void preprocess_init(TCCState *s)
 {
-    s1->include_stack_ptr = s1->include_stack;
+    s->include_stack_ptr = s->include_stack;
     /* XXX: move that before to avoid having to initialize
        file->ifdef_stack_ptr ? */
-    s1->ifdef_stack_ptr = s1->ifdef_stack;
-    file->ifdef_stack_ptr = s1->ifdef_stack_ptr;
+    s->ifdef_stack_ptr = s->ifdef_stack;
+    file->ifdef_stack_ptr = s->ifdef_stack_ptr;
 
     vtop = vstack - 1;
-    s1->pack_stack[0] = 0;
-    s1->pack_stack_ptr = s1->pack_stack;
+    s->pack_stack[0] = 0;
+    s->pack_stack_ptr = s->pack_stack;
 }
 
 ST_FUNC void preprocess_new(void)

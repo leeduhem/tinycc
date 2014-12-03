@@ -384,8 +384,7 @@ ST_FUNC void section_realloc(Section *sec, unsigned long new_size)
     sec->data_allocated = size;
 }
 
-/* reserve at least 'size' bytes in section 'sec' from
-   sec->data_offset. */
+/* reserve at least 'size' bytes in section 'sec' from sec->data_offset. */
 ST_FUNC void *section_ptr_add(Section *sec, unsigned long size)
 {
     unsigned long offset, offset1;
@@ -727,6 +726,7 @@ static int tcc_compile(TCCState *s1)
         section_sym = put_elf_sym(symtab_section, 0, 0,
                                   ELFW(ST_INFO)(STB_LOCAL, STT_SECTION), 0,
                                   text_section->sh_num, NULL);
+        /* FIXME: check return value of getcwd */
         getcwd(buf, sizeof(buf));
 #ifdef _WIN32
         normalize_slashes(buf);
