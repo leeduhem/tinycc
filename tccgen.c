@@ -178,8 +178,7 @@ ST_FUNC Sym *sym_push2(Sym **ps, int v, int t, long c)
     Sym *s;
     if (ps == &local_stack) {
         for (s = *ps; s && s != scope_stack_bottom; s = s->prev)
-            if (!(v & SYM_FIELD) && (v & ~SYM_STRUCT) < SYM_FIRST_ANOM
-                && s->v == v)
+            if (!(v & SYM_FIELD) && !(v & SYM_FIRST_ANOM) && s->v == v)
                 tcc_error("incompatible types for redefinition of '%s'",
                           get_tok_str(v, NULL));
     }
@@ -245,8 +244,7 @@ ST_FUNC Sym *sym_push(int v, CType *type, int r, int c)
     s->type.ref = type->ref;
     s->r = r;
     /* don't record fields or anonymous symbols */
-    /* XXX: simplify */
-    if (!(v & SYM_FIELD) && (v & ~SYM_STRUCT) < SYM_FIRST_ANOM) {
+    if (!(v & SYM_FIELD) && !(v & SYM_FIRST_ANOM)) {
         /* record symbol in token array */
         ts = table_ident[(v & ~SYM_STRUCT) - TOK_IDENT];
         if (v & SYM_STRUCT)
@@ -289,8 +287,8 @@ ST_FUNC void sym_pop(Sym **ptop, Sym *b)
         ss = s->prev;
         v = s->v;
         /* remove symbol in token array */
-        /* XXX: simplify */
-        if (!(v & SYM_FIELD) && (v & ~SYM_STRUCT) < SYM_FIRST_ANOM) {
+        if (!(v & SYM_FIELD) && !(v & SYM_FIRST_ANOM)) {
+            /* XXX: duplicate code */
             ts = table_ident[(v & ~SYM_STRUCT) - TOK_IDENT];
             if (v & SYM_STRUCT)
                 ps = &ts->sym_struct;
@@ -2205,13 +2203,11 @@ static inline CType *pointed_type(CType *type)
     return &type->ref->type;
 }
 
-/* modify type so that its it is a pointer to type. */
+/* modify type so that it is a pointer to type. */
 ST_FUNC void mk_pointer(CType *type)
 {
-    Sym *s;
-    s = sym_push(SYM_FIELD, type, 0, -1);
+    type->ref = sym_push(SYM_FIELD, type, 0, -1);
     type->t = VT_PTR | (type->t & ~VT_TYPE);
-    type->ref = s;
 }
 
 /* compare function types. OLD functions match any new functions */
