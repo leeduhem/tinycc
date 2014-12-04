@@ -60,8 +60,8 @@
      DEF(TOK_ASM3, "__asm__")
 
 /*********************************************************************/
-/* the following are not keywords. They are included to ease parsing */
-/* preprocessor only */
+/* The following are not keywords. They are included to ease preprocessor
+   parsing only. */
      DEF(TOK_DEFINE, "define")
      DEF(TOK_INCLUDE, "include")
      DEF(TOK_INCLUDE_NEXT, "include_next")
@@ -255,33 +255,33 @@
 #endif
 
 /* Tiny Assembler */
- DEF_ASM(byte)
- DEF_ASM(word)
- DEF_ASM(align)
- DEF_ASM(skip)
- DEF_ASM(space)
- DEF_ASM(string)
- DEF_ASM(asciz)
- DEF_ASM(ascii)
- DEF_ASM(file)
- DEF_ASM(globl)
- DEF_ASM(global)
- DEF_ASM(hidden)
- DEF_ASM(ident)
- DEF_ASM(size)
- DEF_ASM(type)
- DEF_ASM(text)
- DEF_ASM(data)
- DEF_ASM(bss)
- DEF_ASM(previous)
- DEF_ASM(fill)
- DEF_ASM(org)
- DEF_ASM(quad)
+     DEF_ASM(byte)
+     DEF_ASM(word)
+     DEF_ASM(align)
+     DEF_ASM(skip)
+     DEF_ASM(space)
+     DEF_ASM(string)
+     DEF_ASM(asciz)
+     DEF_ASM(ascii)
+     DEF_ASM(file)
+     DEF_ASM(globl)
+     DEF_ASM(global)
+     DEF_ASM(hidden)
+     DEF_ASM(ident)
+     DEF_ASM(size)
+     DEF_ASM(type)
+     DEF_ASM(text)
+     DEF_ASM(data)
+     DEF_ASM(bss)
+     DEF_ASM(previous)
+     DEF_ASM(fill)
+     DEF_ASM(org)
+     DEF_ASM(quad)
 #if defined(TCC_TARGET_I386)
- DEF_ASM(code16)
- DEF_ASM(code32)
+     DEF_ASM(code16)
+     DEF_ASM(code32)
 #elif defined(TCC_TARGET_X86_64)
- DEF_ASM(code64)
+     DEF_ASM(code64)
 #endif
 
 #if defined TCC_TARGET_I386 || defined TCC_TARGET_X86_64

@@ -462,7 +462,8 @@ typedef struct DLLReference {
 #define VLA_SP_SAVED       0x02 /* SP has been saved to slot already */
 #define VLA_NEED_NEW_FRAME 0x04 /* Needs new frame for next VLA */
 #define VLA_IN_SCOPE       0x08 /* One or more VLAs are in scope */
-#define VLA_SCOPE_FLAGS    (VLA_SP_SAVED|VLA_NEED_NEW_FRAME|VLA_IN_SCOPE) /* Flags which are saved and restored upon entering and exiting a block */
+/* Flags which are saved and restored upon entering and exiting a block */
+#define VLA_SCOPE_FLAGS    (VLA_SP_SAVED|VLA_NEED_NEW_FRAME|VLA_IN_SCOPE)
 
 /* stored in 'Sym.c' field */
 #define FUNC_NEW       1 /* ansi function prototype */
