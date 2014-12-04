@@ -327,7 +327,8 @@ static void tcc_split_path(TCCState *s, void ***p_ary, int *p_nb_ary, const char
 
 /********************************************************/
 
-ST_FUNC Section *new_section(TCCState *s, const char *name, int sh_type, int sh_flags)
+ST_FUNC Section *new_section(TCCState *s, const char *name, int sh_type,
+                             int sh_flags)
 {
     Section *sec;
 
@@ -704,7 +705,7 @@ ST_FUNC int tcc_open(TCCState *s, const char *filename)
 }
 
 /* compile the C file opened in 'file'. Return non zero if errors. */
-static int tcc_compile(TCCState *s1)
+static int tcc_compile(TCCState *s)
 {
     Sym *define_start;
     SValue *pvtop;
@@ -714,7 +715,7 @@ static int tcc_compile(TCCState *s1)
 #ifdef INC_DEBUG
     printf("%s: **** new file\n", file->filename);
 #endif
-    preprocess_init(s1);
+    preprocess_init(s);
 
     cur_text_section = NULL;
     funcname = "";
@@ -722,7 +723,7 @@ static int tcc_compile(TCCState *s1)
 
     /* file info: full path + filename */
     section_sym = 0; /* avoid warning */
-    if (s1->do_debug) {
+    if (s->do_debug) {
         section_sym = put_elf_sym(symtab_section, 0, 0,
                                   ELFW(ST_INFO)(STB_LOCAL, STT_SECTION), 0,
                                   text_section->sh_num, NULL);
@@ -758,7 +759,7 @@ static int tcc_compile(TCCState *s1)
     func_old_type.t = VT_FUNC;
     func_old_type.ref = sym_push(SYM_FIELD, &int_type, FUNC_CDECL, FUNC_OLD);
 #ifdef TCC_TARGET_ARM
-    arm_init(s1);
+    arm_init(s);
 #endif
 
 #if 0
@@ -777,9 +778,9 @@ static int tcc_compile(TCCState *s1)
 
     define_start = define_stack;
 
-    if (setjmp(s1->error_jmp_buf) == 0) {
-        s1->nb_errors = 0;
-        s1->error_set_jmp_enabled = 1;
+    if (setjmp(s->error_jmp_buf) == 0) {
+        s->nb_errors = 0;
+        s->error_set_jmp_enabled = 1;
 
         ch = file->buf_ptr[0];
         tok_flags = TOK_FLAG_BOL | TOK_FLAG_BOF;
@@ -793,13 +794,13 @@ static int tcc_compile(TCCState *s1)
             tcc_warning("internal compiler error: vstack leak? (%d)", vtop - pvtop);
 
         /* end of translation unit info */
-        if (s1->do_debug) {
+        if (s->do_debug) {
             put_stabs_r(NULL, N_SO, 0, 0,
                         text_section->data_offset, text_section, section_sym);
         }
     }
 
-    s1->error_set_jmp_enabled = 0;
+    s->error_set_jmp_enabled = 0;
 
     /* reset define stack, but leave -Dsymbols (may be incorrect if
        they are undefined) */
@@ -810,7 +811,7 @@ static int tcc_compile(TCCState *s1)
     sym_pop(&global_stack, NULL);
     sym_pop(&local_stack, NULL);
 
-    return s1->nb_errors != 0 ? -1 : 0;
+    return s->nb_errors != 0 ? -1 : 0;
 }
 
 LIBTCCAPI int tcc_compile_string(TCCState *s, const char *str)
