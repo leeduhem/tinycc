@@ -40,7 +40,7 @@
 #include <setjmp.h>
 #include <time.h>
 
-#ifdef CONFIG_TCCASSERT
+#ifdef CONFIG_TCC_ASSERT
 #include <assert.h>
 #define TCC_ASSERT(ex) assert(ex)
 #else

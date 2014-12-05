@@ -177,10 +177,12 @@ ST_FUNC Sym *sym_push2(Sym **ps, int v, int t, long c)
 {
     Sym *s;
     if (ps == &local_stack) {
-        for (s = *ps; s && s != scope_stack_bottom; s = s->prev)
+        for (s = *ps; s && s != scope_stack_bottom; s = s->prev) {
+            TCC_ASSERT(v >= 0);
             if (!(v & SYM_FIELD) && !(v & SYM_FIRST_ANOM) && s->v == v)
                 tcc_error("incompatible types for redefinition of '%s'",
                           get_tok_str(v, NULL));
+        }
     }
     s = sym_malloc();
     s->asm_label = NULL;
@@ -243,6 +245,7 @@ ST_FUNC Sym *sym_push(int v, CType *type, int r, int c)
     s = sym_push2(ps, v, type->t, c);
     s->type.ref = type->ref;
     s->r = r;
+    TCC_ASSERT(v >= 0);
     /* don't record fields or anonymous symbols */
     if (!(v & SYM_FIELD) && !(v & SYM_FIRST_ANOM)) {
         /* record symbol in token array */
@@ -286,6 +289,7 @@ ST_FUNC void sym_pop(Sym **ptop, Sym *b)
     while(s != b) {
         ss = s->prev;
         v = s->v;
+        TCC_ASSERT(v >= 0);
         /* remove symbol in token array */
         if (!(v & SYM_FIELD) && !(v & SYM_FIRST_ANOM)) {
             /* XXX: duplicate code */
