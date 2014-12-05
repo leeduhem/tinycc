@@ -980,8 +980,7 @@ ST_FUNC void tok_str_add_tok(TokenString *s)
     tok_str_add2(s, tok, &tokc);
 }
 
-/* get a token from an integer array and increment pointer
-   accordingly. we code it as a macro to avoid pointer aliasing. */
+/* Get a token from an integer array and increment pointer accordingly. */
 static inline void TOK_GET(int *t, const int **pp, CValue *cv)
 {
     const int *p = *pp;
@@ -2539,23 +2538,19 @@ keep_tok_flags:
 #endif
 }
 
-/* return next token without macro substitution. Can read input from
+/* Next token without macro substitution. Can read input from
    macro_ptr buffer */
 static void next_nomacro_spc(void)
 {
     if (macro_ptr) {
-    redo:
-        tok = *macro_ptr;
-        if (tok) {
+        while ((tok = *macro_ptr)) {
             TOK_GET(&tok, &macro_ptr, &tokc);
-            if (tok == TOK_LINENUM) {
-                file->line_num = tokc.i;
-                goto redo;
-            }
+            if (tok != TOK_LINENUM)
+                break;
+            file->line_num = tokc.i;
         }
-    } else {
+    } else
         next_nomacro1();
-    }
 }
 
 ST_FUNC void next_nomacro(void)
@@ -2994,7 +2989,7 @@ static void macro_subst(TokenString *tok_str, Sym **nested_list,
         tok_str_free(macro_str1);
 }
 
-/* return next token with macro substitution */
+/* Next token with macro substitution */
 ST_FUNC void next(void)
 {
     Sym *nested_list, *s;
@@ -3013,12 +3008,12 @@ ST_FUNC void next(void)
             (parse_flags & PARSE_FLAG_PREPROCESS)) {
             s = define_find(tok);
             if (s) {
-                /* we have a macro: we try to substitute */
+                /* we have a macro: try to substitute */
                 tok_str_new(&str);
                 nested_list = NULL;
                 ml = NULL;
                 if (macro_subst_tok(&str, &nested_list, s, &ml) == 0) {
-                    /* substitution done, NOTE: maybe empty */
+                    /* substitution done. NOTE: maybe empty */
                     tok_str_add(&str, 0);
                     macro_ptr = str.str;
                     macro_ptr_allocated = str.str;
