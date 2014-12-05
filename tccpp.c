@@ -2989,62 +2989,57 @@ static void macro_subst(TokenString *tok_str, Sym **nested_list,
         tok_str_free(macro_str1);
 }
 
-/* Next token with macro substitution */
+/* Next token with macro substitution. */
 ST_FUNC void next(void)
 {
     Sym *nested_list, *s;
     TokenString str;
     struct macro_level *ml;
 
- redo:
-    if (parse_flags & PARSE_FLAG_SPACES)
-        next_nomacro_spc();
-    else
-        next_nomacro();
-    if (!macro_ptr) {
-        /* if not reading from macro substituted string, then try
-           to substitute macros */
-        if (tok >= TOK_IDENT &&
-            (parse_flags & PARSE_FLAG_PREPROCESS)) {
-            s = define_find(tok);
-            if (s) {
-                /* we have a macro: try to substitute */
+    for (;;) {
+        if (parse_flags & PARSE_FLAG_SPACES)
+            next_nomacro_spc();
+        else
+            next_nomacro();
+
+        if (!macro_ptr) {
+            /* If not reading from macro substituted string, then try to
+               substitute macros. */
+            if (tok >= TOK_IDENT && (parse_flags & PARSE_FLAG_PREPROCESS)
+                && (s = define_find(tok))) {
+                /* We have a macro: try to substitute. */
                 tok_str_new(&str);
                 nested_list = NULL;
                 ml = NULL;
                 if (macro_subst_tok(&str, &nested_list, s, &ml) == 0) {
-                    /* substitution done. NOTE: maybe empty */
                     tok_str_add(&str, 0);
-                    macro_ptr = str.str;
-                    macro_ptr_allocated = str.str;
-                    goto redo;
+                    macro_ptr = macro_ptr_allocated = str.str;
+                    continue;
                 }
             }
-        }
-    } else {
-        if (tok == 0) {
-            /* end of macro or end of unget buffer */
-            if (unget_buffer_enabled) {
-                macro_ptr = unget_saved_macro_ptr;
-                unget_buffer_enabled = 0;
-            } else {
-                /* end of macro string: free it */
-                tok_str_free(macro_ptr_allocated);
-                macro_ptr_allocated = NULL;
-                macro_ptr = NULL;
+        } else {
+            if (tok == 0) {
+                /* End of macro or unget buffer. */
+                if (unget_buffer_enabled) {
+                    macro_ptr = unget_saved_macro_ptr;
+                    unget_buffer_enabled = 0;
+                } else {
+                    /* End of macro string: free it. */
+                    tok_str_free(macro_ptr_allocated);
+                    macro_ptr = macro_ptr_allocated = NULL;
+                }
+                continue;
+            } else if (tok == TOK_NOSUBST) {
+                /* Discard preprocessor's nosubst markers. */
+                continue;
             }
-            goto redo;
-        } else if (tok == TOK_NOSUBST) {
-            /* discard preprocessor's nosubst markers */
-            goto redo;
         }
+        break;
     }
 
-    /* convert preprocessor tokens into C tokens */
-    if (tok == TOK_PPNUM &&
-        (parse_flags & PARSE_FLAG_TOK_NUM)) {
+    /* Convert preprocessor tokens to C tokens. */
+    if (tok == TOK_PPNUM && (parse_flags & PARSE_FLAG_TOK_NUM))
         parse_number((char *)tokc.cstr->data);
-    }
 }
 
 /* push back current token and set current token to 'last_tok'. Only
