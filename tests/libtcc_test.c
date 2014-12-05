@@ -44,7 +44,7 @@ int main(int argc, char **argv)
     }
 
     /* if tcclib.h and libtcc1.a are not installed, where can we find them */
-    if (argc == 2 && !memcmp(argv[1], "lib_path=",9))
+    if (argc == 2 && !memcmp(argv[1], "lib_path=", 9))
         tcc_set_lib_path(s, argv[1]+9);
 
     /* MUST BE CALLED before any compilation */
