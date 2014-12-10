@@ -981,7 +981,7 @@ ST_FUNC void tok_str_add_tok(TokenString *s)
 }
 
 /* Get a token from an integer array and increment pointer accordingly. */
-static inline void TOK_GET(int *t, const int **pp, CValue *cv)
+static inline void tok_get(int *t, const int **pp, CValue *cv)
 {
     const int *p = *pp;
     int n, *tab;
@@ -1035,9 +1035,9 @@ static int macro_is_equal(const int *a, const int *b)
     CValue cv;
     int t;
     while (*a && *b) {
-        TOK_GET(&t, &a, &cv);
+        tok_get(&t, &a, &cv);
         pstrcpy(buf, sizeof buf, get_tok_str(t, &cv));
-        TOK_GET(&t, &b, &cv);
+        tok_get(&t, &b, &cv);
         if (strcmp(buf, get_tok_str(t, &cv)))
             return 0;
     }
@@ -1196,7 +1196,7 @@ static void tok_print(int *str)
 
     printf("<");
     while (1) {
-        TOK_GET(&t, &str, &cval);
+        tok_get(&t, &str, &cval);
         if (!t)
             break;
         printf("%s", get_tok_str(t, &cval));
@@ -2544,7 +2544,7 @@ static void next_nomacro_spc(void)
 {
     if (macro_ptr) {
         while ((tok = *macro_ptr)) {
-            TOK_GET(&tok, &macro_ptr, &tokc);
+            tok_get(&tok, &macro_ptr, &tokc);
             if (tok != TOK_LINENUM)
                 break;
             file->line_num = tokc.i;
@@ -2574,12 +2574,12 @@ static int *macro_arg_subst(Sym **nested_list, const int *macro_str, Sym *args)
     tok_str_new(&str);
     last_tok = 0;
     while(1) {
-        TOK_GET(&t, &macro_str, &cval);
+        tok_get(&t, &macro_str, &cval);
         if (!t)
             break;
         if (t == '#') {
             /* stringize */
-            TOK_GET(&t, &macro_str, &cval);
+            tok_get(&t, &macro_str, &cval);
             if (!t)
                 break;
             s = sym_find2(args, t);
@@ -2588,7 +2588,7 @@ static int *macro_arg_subst(Sym **nested_list, const int *macro_str, Sym *args)
                 st = s->d;
                 spc = 0;
                 while (*st) {
-                    TOK_GET(&t, &st, &cval);
+                    tok_get(&t, &st, &cval);
                     if (!check_space(t, &spc))
                         cstr_cat(&cstr, get_tok_str(t, &cval));
                 }
@@ -2630,7 +2630,7 @@ static int *macro_arg_subst(Sym **nested_list, const int *macro_str, Sym *args)
                         int t1;
                     add_var:
                         for(;;) {
-                            TOK_GET(&t1, &st, &cval);
+                            tok_get(&t1, &st, &cval);
                             if (!t1)
                                 break;
                             tok_str_add2(&str, t1, &cval);
@@ -2850,7 +2850,7 @@ static inline int *macro_twosharps(const int *macro_str)
     /* we search the first '##' */
     for(ptr = macro_str;;) {
         CValue cval;
-        TOK_GET(&t, &ptr, &cval);
+        tok_get(&t, &ptr, &cval);
         if (t == TOK_TWOSHARPS)
             break;
         /* nothing more to do if end of string */
@@ -2862,7 +2862,7 @@ static inline int *macro_twosharps(const int *macro_str)
     start_of_nosubsts = -1;
     tok_str_new(&macro_str1);
     for(ptr = macro_str;;) {
-        TOK_GET(&tok, &ptr, &tokc);
+        tok_get(&tok, &ptr, &tokc);
         if (tok == 0)
             break;
         if (tok == TOK_TWOSHARPS)
@@ -2880,7 +2880,7 @@ static inline int *macro_twosharps(const int *macro_str)
                 t = *++ptr;
             if (t && t != TOK_TWOSHARPS) {
                 CValue cval;
-                TOK_GET(&t, &ptr, &cval);
+                tok_get(&t, &ptr, &cval);
                 /* We concatenate the two tokens */
                 cstr_new(&cstr);
                 if (tok != TOK_PLCHLDR)
@@ -2943,13 +2943,13 @@ static void macro_subst(TokenString *tok_str, Sym **nested_list,
            file stream due to a macro function call */
         if (ptr == NULL)
             break;
-        TOK_GET(&t, &ptr, &cval);
+        tok_get(&t, &ptr, &cval);
         if (t == 0)
             break;
         if (t == TOK_NOSUBST) {
             /* following token has already been subst'd. just copy it on */
             tok_str_add2(tok_str, TOK_NOSUBST, NULL);
-            TOK_GET(&t, &ptr, &cval);
+            tok_get(&t, &ptr, &cval);
             goto no_subst;
         }
         s = define_find(t);
