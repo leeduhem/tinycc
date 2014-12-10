@@ -414,12 +414,7 @@ static int tcc_peekc_slow(BufferedFile *bf)
         bf->buf_end = bf->buffer + len;
         *bf->buf_end = CH_EOB;
     }
-    if (bf->buf_ptr < bf->buf_end) {
-        return bf->buf_ptr[0];
-    } else {
-        bf->buf_ptr = bf->buf_end;
-        return CH_EOF;
-    }
+    return bf->buf_ptr < bf->buf_end ? bf->buf_ptr[0] : CH_EOF;
 }
 
 /* return the current character, handling end of block if necessary
@@ -438,7 +433,7 @@ ST_INLN void inp(void)
         ch = handle_eob();
 }
 
-/* handle '\[\r]\n' */
+/* handle '[\r]\n' */
 static int handle_stray_noerror(void)
 {
     while (ch == '\\') {
@@ -488,27 +483,27 @@ static int handle_stray1(uint8_t *p)
 }
 
 /* handle just the EOB case, but not stray */
-#define PEEKC_EOB(c, p)\
-{\
-    p++;\
-    c = *p;\
-    if (c == '\\') {\
-        file->buf_ptr = p;\
-        c = handle_eob();\
-        p = file->buf_ptr;\
-    }\
-}
+#define PEEKC_EOB(c, p)                         \
+    {                                           \
+        p++;                                    \
+        c = *p;                                 \
+        if (c == '\\') {                        \
+            file->buf_ptr = p;                  \
+            c = handle_eob();                   \
+            p = file->buf_ptr;                  \
+        }                                       \
+    }
 
 /* handle the complicated stray case */
-#define PEEKC(c, p)\
-{\
-    p++;\
-    c = *p;\
-    if (c == '\\') {\
-        c = handle_stray1(p);\
-        p = file->buf_ptr;\
-    }\
-}
+#define PEEKC(c, p)                             \
+    {                                           \
+        p++;                                    \
+        c = *p;                                 \
+        if (c == '\\') {                        \
+            c = handle_stray1(p);               \
+            p = file->buf_ptr;                  \
+        }                                       \
+    }
 
 /* input with '\[\r]\n' handling. Note that this function cannot
    handle other characters after '\', so you cannot call it inside
@@ -2108,7 +2103,7 @@ static void parse_number(const char *p)
         }                                       \
         break;
 
-/* return next token without macro substitution */
+/* Next token without macro substitution. */
 static inline void next_nomacro1(void)
 {
     int t, c, is_long;
@@ -2177,9 +2172,8 @@ static inline void next_nomacro1(void)
                 }
 
                 /* add end of include file debug info */
-                if (tcc_state->do_debug) {
+                if (tcc_state->do_debug)
                     put_stabd(N_EINCL, 0, 0);
-                }
                 /* pop include stack */
                 tcc_close();
                 s1->include_stack_ptr--;
@@ -2194,7 +2188,7 @@ static inline void next_nomacro1(void)
         tok_flags |= TOK_FLAG_BOL;
         p++;
 maybe_newline:
-        if (0 == (parse_flags & PARSE_FLAG_LINEFEED))
+        if (!(parse_flags & PARSE_FLAG_LINEFEED))
             goto redo_no_start;
         tok = TOK_LINEFEED;
         goto keep_tok_flags;
