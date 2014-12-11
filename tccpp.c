@@ -459,6 +459,14 @@ static void handle_stray(void)
         tcc_error("stray '\\' in program");
 }
 
+static int parse_stray(uint8_t *p)
+{
+    file->buf_ptr = p;
+    ch = *p;
+    handle_stray();
+    return *(file->buf_ptr);
+}
+
 /* skip the stray and handle the \\n case. Output an error if
    incorrect char after the stray */
 static int handle_stray1(uint8_t *p)
@@ -469,17 +477,9 @@ static int handle_stray1(uint8_t *p)
         file->buf_ptr = p;
         c = handle_eob();
         p = file->buf_ptr;
-        if (c == '\\')
-            goto parse_stray;
-    } else {
-    parse_stray:
-        file->buf_ptr = p;
-        ch = *p;
-        handle_stray();
-        p = file->buf_ptr;
-        c = *p;
+        return c == '\\' ? parse_stray(p) : c;
     }
-    return c;
+    return parse_stray(p);
 }
 
 /* handle just the EOB case, but not stray */
@@ -515,19 +515,15 @@ ST_FUNC void minp(void)
         handle_stray();
 }
 
-
-/* single line C++ comments */
+/* Single line C++ comments. */
 static uint8_t *parse_line_comment(uint8_t *p)
 {
     int c;
 
-    p++;
-    for(;;) {
-        c = *p;
-    redo:
-        if (c == '\n' || c == CH_EOF) {
-            break;
-        } else if (c == '\\') {
+    for (;;) {
+        c = *++p;
+
+        while (c == '\\') {
             file->buf_ptr = p;
             c = handle_eob();
             p = file->buf_ptr;
@@ -543,12 +539,11 @@ static uint8_t *parse_line_comment(uint8_t *p)
                         PEEKC_EOB(c, p);
                     }
                 }
-            } else {
-                goto redo;
             }
-        } else {
-            p++;
         }
+
+        if (c == '\n' || c == CH_EOF)
+            break;
     }
     return p;
 }
