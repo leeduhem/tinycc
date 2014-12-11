@@ -505,7 +505,7 @@ static int handle_stray1(uint8_t *p)
         }                                       \
     }
 
-/* input with '\[\r]\n' handling. Note that this function cannot
+/* input with '[\r]\n' handling. Note that this function cannot
    handle other characters after '\', so you cannot call it inside
    strings or comments */
 ST_FUNC void minp(void)

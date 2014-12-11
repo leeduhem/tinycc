@@ -364,7 +364,7 @@ typedef union CValue {
 
 /* value on stack */
 typedef struct SValue {
-    CType type;        	   /* type */
+    CType type;            /* type */
     unsigned short r;      /* register + flags */
     unsigned short r2;     /* second register, used for 'long long'
                               type. If not used, set to VT_CONST */
@@ -396,22 +396,22 @@ typedef struct AttributeDef {
 
 /* symbol management */
 typedef struct Sym {
-    int v;    		/* symbol token */
+    int v;              /* symbol token */
     char *asm_label;    /* associated asm label */
     union {
-        long r;    	/* associated register */
+        long r;         /* associated register */
         struct Attribute a;
     };
     union {
-        long c;		/* associated number */
-        int *d;   	/* define token stream */
+        long c;         /* associated number */
+        int *d;         /* define token stream */
     };
-    CType type;    	/* associated type */
+    CType type;         /* associated type */
     union {
         struct Sym *next; /* next related symbol */
-        long jnext; 	/* next jump label */
+        long jnext;     /* next jump label */
     };
-    struct Sym *prev; 	/* prev symbol in stack */
+    struct Sym *prev;   /* prev symbol in stack */
     struct Sym *prev_tok; /* previous symbol for this token */
 } Sym;
 
@@ -498,15 +498,15 @@ typedef struct BufferedFile {
     uint8_t *buf_end;
     int fd;
     struct BufferedFile *prev;
-    int line_num;    	/* current line number - here to simplify code */
-    int ifndef_macro;  	/* #ifndef macro / #endif search */
+    int line_num;       /* current line number - here to simplify code */
+    int ifndef_macro;   /* #ifndef macro / #endif search */
     int ifndef_macro_saved; /* saved ifndef_macro */
     int *ifdef_stack_ptr;   /* ifdef_stack value at the start of the file */
     char filename[1024];    /* filename */
     unsigned char buffer[1]; /* extra size for CH_EOB char */
 } BufferedFile;
 
-#define CH_EOB   '\\'	/* end of buffer or '\0' char in file */
+#define CH_EOB   '\\'   /* end of buffer or '\0' char in file */
 #define CH_EOF   (-1)   /* end of file */
 
 /* parsing state (used to save parser state to reparse part of the
@@ -798,9 +798,9 @@ struct TCCState {
 #define VT_WEAK    0x00010000  /* weak symbol */
 #define VT_TLS     0x00040000  /* thread-local storage */
 #define VT_VIS_SHIFT    19     /* shift for symbol visibility, overlapping
-				  bitfield values, because bitfields never
-				  have linkage and hence never have
-				  visibility.  */
+                                  bitfield values, because bitfields never
+                                  have linkage and hence never have
+                                  visibility.  */
 #define VT_VIS_SIZE      2     /* We have four visibilities.  */
 #define VT_VIS_MASK (((1 << VT_VIS_SIZE)-1) << VT_VIS_SHIFT)
 

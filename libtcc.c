@@ -690,11 +690,10 @@ ST_FUNC int tcc_open(TCCState *s, const char *filename)
     if (strcmp(filename, "-") == 0) {
         fd = 0;
         filename = "stdin";
-    }
-    else
+    } else
         fd = open(filename, O_RDONLY | O_BINARY);
     if ((s->verbose == 2 && fd >= 0) || s->verbose == 3)
-        printf("%s %*s%s\n", fd < 0 ? "nf":"->",
+        printf("%s %*s%s\n", fd < 0 ? "nf" : "->",
                (int)(s->include_stack_ptr - s->include_stack), "", filename);
     if (fd < 0)
         return -1;
