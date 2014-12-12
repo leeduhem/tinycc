@@ -152,6 +152,17 @@ ST_FUNC void cstr_ccat(CString *cstr, int ch)
     cstr->size = size;
 }
 
+/* add a wide char */
+ST_FUNC void cstr_wccat(CString *cstr, int ch)
+{
+    int size;
+    size = cstr->size + sizeof(nwchar_t);
+    if (size > cstr->size_allocated)
+        cstr_realloc(cstr, size);
+    *(nwchar_t *)(((char *)cstr->data) + cstr->size) = ch;
+    cstr->size = size;
+}
+
 ST_FUNC void cstr_cat(CString *cstr, const char *str)
 {
     int c;
@@ -162,17 +173,6 @@ ST_FUNC void cstr_cat(CString *cstr, const char *str)
         cstr_ccat(cstr, c);
         str++;
     }
-}
-
-/* add a wide char */
-ST_FUNC void cstr_wccat(CString *cstr, int ch)
-{
-    int size;
-    size = cstr->size + sizeof(nwchar_t);
-    if (size > cstr->size_allocated)
-        cstr_realloc(cstr, size);
-    *(nwchar_t *)(((unsigned char *)cstr->data) + size - sizeof(nwchar_t)) = ch;
-    cstr->size = size;
 }
 
 ST_FUNC void cstr_new(CString *cstr)
@@ -200,13 +200,15 @@ static void add_char(CString *cstr, int c)
         /* XXX: could be more precise if char or string */
         cstr_ccat(cstr, '\\');
     }
-    if (c >= 32 && c <= 126) {
+    if (c >= ' ' && c <= '~') {
+        /* ASCII printable character. */
         cstr_ccat(cstr, c);
     } else {
         cstr_ccat(cstr, '\\');
         if (c == '\n') {
             cstr_ccat(cstr, 'n');
         } else {
+            /* Convert to octal number. */
             cstr_ccat(cstr, '0' + ((c >> 6) & 7));
             cstr_ccat(cstr, '0' + ((c >> 3) & 7));
             cstr_ccat(cstr, '0' + (c & 7));
@@ -1783,11 +1785,14 @@ static void parse_escape_string(CString *outstr, const uint8_t *buf, int is_long
 /* we use 64 bit numbers */
 #define BN_SIZE 2
 
-/* bn = (bn << shift) | or_val */
+/* bn[1]bn[0] = (bn[1]bn[0] << shift) | or_val */
 static void bn_lshift(unsigned int *bn, int shift, int or_val)
 {
     int i;
     unsigned int v;
+
+    TCC_ASSERT(sizeof(int) * CHAR_BIT);
+
     for(i = 0; i < BN_SIZE; i++) {
         v = bn[i];
         bn[i] = (v << shift) | or_val;
@@ -1802,7 +1807,7 @@ static void bn_zero(unsigned int *bn)
         bn[i] = 0;
 }
 
-/* parse number in null terminated string 'p' and return it in the
+/* parse number in nul terminated string 'p' and return it in the
    current token */
 static void parse_number(const char *p)
 {
@@ -1813,27 +1818,26 @@ static void parse_number(const char *p)
 
     /* number */
     q = token_buf;
-    ch = *p++;
-    t = ch;
+    t = *p++;
     ch = *p++;
     *q++ = t;
-    b = 10;
+    b = 10; /* Decimal number by default. */
     if (t == '.') {
         goto float_frac_parse;
     } else if (t == '0') {
         if (ch == 'x' || ch == 'X') {
             q--;
             ch = *p++;
-            b = 16;
+            b = 16; /* Hexadecimal number. */
         } else if (tcc_ext && (ch == 'b' || ch == 'B')) {
             q--;
             ch = *p++;
-            b = 2;
+            b = 2; /* Binary number, TCC extension. */
         }
     }
     /* parse all digits. cannot check octal numbers at this stage
        because of floating point constants */
-    while (1) {
+    for (;;) {
         if (ch >= 'a' && ch <= 'f')
             t = ch - 'a' + 10;
         else if (ch >= 'A' && ch <= 'F')
@@ -1844,7 +1848,7 @@ static void parse_number(const char *p)
             break;
         if (t >= b)
             break;
-        if (q >= token_buf + STRING_MAX_SIZE) {
+        if (q >= token_buf + sizeof(token_buf) - 1) {
         num_too_long:
             tcc_error("number too long");
         }
@@ -1855,6 +1859,7 @@ static void parse_number(const char *p)
         ((ch == 'e' || ch == 'E') && b == 10) ||
         ((ch == 'p' || ch == 'P') && (b == 16 || b == 2))) {
         if (b != 10) {
+            TCC_ASSERT(b == 16 || b == 2);
             /* NOTE: strtox should support that for hexa numbers, but
                non ISOC99 libcs do not support it, so we prefer to do
                it by hand */
@@ -1867,7 +1872,7 @@ static void parse_number(const char *p)
                 shift = 2;
             bn_zero(bn);
             q = token_buf;
-            while (1) {
+            for (;;) {
                 t = *q++;
                 if (t == '\0') {
                     break;
@@ -1883,7 +1888,7 @@ static void parse_number(const char *p)
             frac_bits = 0;
             if (ch == '.') {
                 ch = *p++;
-                while (1) {
+                for (;;) {
                     t = ch;
                     if (t >= 'a' && t <= 'f') {
                         t = t - 'a' + 10;
