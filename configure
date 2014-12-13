@@ -369,6 +369,7 @@ Build CPU        $cpu
 Target OS        $targetos
 Big Endian       $bigendian
 gprof enabled    $gprof
+assert enabled   $enable_assert
 cross compilers  $build_cross
 use libgcc       $use_libgcc
 EOF

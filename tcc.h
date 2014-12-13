@@ -39,6 +39,7 @@
 #include <fcntl.h>
 #include <setjmp.h>
 #include <time.h>
+#include <limits.h>
 
 #ifdef CONFIG_TCC_ASSERT
 #include <assert.h>
