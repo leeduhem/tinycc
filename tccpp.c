@@ -1866,10 +1866,7 @@ static void parse_number(const char *p)
             /* hexadecimal or binary floats */
             /* XXX: handle overflows */
             *q = '\0';
-            if (b == 16)
-                shift = 4;
-            else
-                shift = 2;
+            shift = b == 16 ? 4 : 1;
             bn_zero(bn);
             q = token_buf;
             for (;;) {
