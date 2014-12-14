@@ -73,7 +73,8 @@ static const unsigned char tok_two_chars[] =
 /* outdated -- gr
     "<=\236>=\235!=\225&&\240||\241++\244--\242==\224<<\1>>\2+=\253"
     "-=\255*=\252/=\257%=\245&=\246^=\336|=\374->\313..\250##\266";
-*/{
+*/
+{
     '<','=', TOK_LE,
     '>','=', TOK_GE,
     '!','=', TOK_NE,
@@ -166,12 +167,11 @@ ST_FUNC void cstr_wccat(CString *cstr, int ch)
 ST_FUNC void cstr_cat(CString *cstr, const char *str)
 {
     int c;
-    for(;;) {
-        c = *str;
-        if (c == '\0')
+
+    for (;;) {
+        if ((c = *str++) == '\0')
             break;
         cstr_ccat(cstr, c);
-        str++;
     }
 }
 
@@ -251,7 +251,7 @@ static TokenSym *tok_alloc_new(TokenSym **pts, const char *str, int len)
 #define TOK_HASH_INIT 1
 #define TOK_HASH_FUNC(h, c) ((h) * 263 + (c))
 
-/* find a token and add it if not found */
+/* Add a token if it is not exist already. */
 ST_FUNC TokenSym *tok_alloc(const char *str, int len)
 {
     TokenSym *ts, **pts;
@@ -275,25 +275,23 @@ ST_FUNC TokenSym *tok_alloc(const char *str, int len)
     return tok_alloc_new(pts, str, len);
 }
 
-/* XXX: buffer overflow */
-/* XXX: float tokens */
 ST_FUNC char *get_tok_str(int v, CValue *cv)
 {
     static char buf[STRING_MAX_SIZE + 1];
-    static CString cstr_buf;
+    CString cstr_buf;
     CString *cstr;
     char *p;
     int i, len;
 
     /* NOTE: to go faster, we give a fixed buffer for small strings */
-    cstr_reset(&cstr_buf);
+    /* XXX: buffer overflow */
+    cstr_new(&cstr_buf);
     cstr_buf.data = buf;
     cstr_buf.size_allocated = sizeof(buf);
     p = buf;
 
-/* just an explanation, should never happen:
-    if (v <= TOK_LINENUM && v >= TOK_CINT && cv == NULL)
-        tcc_error("internal error: get_tok_str"); */
+    if (v <= TOK_LINENUM && v >= TOK_CCHAR && cv == NULL)
+        tcc_error("internal error: get_tok_str");
 
     switch(v) {
     case TOK_CINT:
@@ -321,7 +319,7 @@ ST_FUNC char *get_tok_str(int v, CValue *cv)
     case TOK_PPNUM:
         cstr = cv->cstr;
         len = cstr->size - 1;
-        for(i=0;i<len;i++)
+        for(i = 0; i < len; i++)
             add_char(&cstr_buf, ((unsigned char *)cstr->data)[i]);
         cstr_ccat(&cstr_buf, '\0');
         break;
@@ -332,17 +330,18 @@ ST_FUNC char *get_tok_str(int v, CValue *cv)
         cstr_ccat(&cstr_buf, '\"');
         if (v == TOK_STR) {
             len = cstr->size - 1;
-            for(i=0;i<len;i++)
+            for(i = 0; i < len; i++)
                 add_char(&cstr_buf, ((unsigned char *)cstr->data)[i]);
         } else {
             len = (cstr->size / sizeof(nwchar_t)) - 1;
-            for(i=0;i<len;i++)
+            for(i = 0; i < len; i++)
                 add_char(&cstr_buf, ((nwchar_t *)cstr->data)[i]);
         }
         cstr_ccat(&cstr_buf, '\"');
         cstr_ccat(&cstr_buf, '\0');
         break;
 
+    /* XXX: float tokens */
     case TOK_CFLOAT:
     case TOK_CDOUBLE:
     case TOK_CLDOUBLE:
@@ -397,6 +396,7 @@ ST_FUNC char *get_tok_str(int v, CValue *cv)
 static int tcc_peekc_slow(BufferedFile *bf)
 {
     int len;
+
     /* only tries to read if really end of buffer */
     if (bf->buf_ptr >= bf->buf_end) {
         if (bf->fd != -1) {
@@ -661,7 +661,7 @@ static uint8_t *parse_pp_string(uint8_t *p, int sep, CString *str)
                 /* XXX: indicate line number of start of string */
                 tcc_error("missing terminating %c character", sep);
             } else if (c == '\\') {
-                /* escape : just skip \[\r]\n */
+                /* escape : just skip [\r]\n */
                 PEEKC_EOB(c, p);
                 if (c == '\n') {
                     file->line_num++;
@@ -1063,10 +1063,9 @@ ST_FUNC void define_undef(Sym *sym)
 
 ST_INLN Sym *define_find(int v)
 {
-    v -= TOK_IDENT;
-    if ((unsigned)v >= (unsigned)(tok_ident - TOK_IDENT))
+    if (!(v >= TOK_IDENT && v < tok_ident))
         return NULL;
-    return table_ident[v]->sym_define;
+    return table_ident[v - TOK_IDENT]->sym_define;
 }
 
 /* free define stack until top reaches 'sym' */
@@ -1480,14 +1479,12 @@ ST_FUNC void preprocess(int is_bof)
                     continue;
                 buf1[0] = 0;
                 i = n; /* force end loop */
-
             } else if (i == -1) {
                 /* search in current dir if "header.h" */
                 if (c != '\"')
                     continue;
                 path = file->filename;
                 pstrncpy(buf1, path, tcc_basename(path) - path);
-
             } else {
                 /* search in all the include paths */
                 if (i < s->nb_include_paths)
@@ -1806,12 +1803,13 @@ static void bn_zero(unsigned int *bn)
 static void parse_number(const char *p)
 {
     int b, t, shift, frac_bits, s, exp_val, ch;
-    char *q;
+    char *q, *token_buf_end;
     unsigned int bn[BN_SIZE];
     double d;
 
     /* number */
     q = token_buf;
+    token_buf_end = token_buf + sizeof(token_buf) - 1;
     t = *p++;
     ch = *p++;
     *q++ = t;
@@ -1836,7 +1834,7 @@ static void parse_number(const char *p)
             break;
         if (t >= b)
             break;
-        if (q >= token_buf + sizeof(token_buf) - 1) {
+        if (q >= token_buf_end) {
         num_too_long:
             tcc_error("number too long");
         }
@@ -1889,9 +1887,9 @@ static void parse_number(const char *p)
                 s = -1;
                 ch = *p++;
             }
-            if (ch < '0' || ch > '9')
+            if (!isnum(ch))
                 expect("exponent digits");
-            while (ch >= '0' && ch <= '9') {
+            while (isnum(ch)) {
                 exp_val = exp_val * 10 + ch - '0';
                 ch = *p++;
             }
@@ -1899,8 +1897,9 @@ static void parse_number(const char *p)
 
             /* now we can generate the number */
             /* XXX: should patch directly float number */
-            d = (double)bn[1] * 4294967296.0 + (double)bn[0];
+            d = (double)bn[1] * ldexp(1, 32) + (double)bn[0];
             d = ldexp(d, exp_val - frac_bits);
+
             t = toup(ch);
             if (t == 'F') {
                 ch = *p++;
@@ -1924,33 +1923,33 @@ static void parse_number(const char *p)
         } else {
             /* decimal floats */
             if (ch == '.') {
-                if (q >= token_buf + STRING_MAX_SIZE)
+                if (q >= token_buf_end)
                     goto num_too_long;
                 *q++ = ch;
                 ch = *p++;
             float_frac_parse:
-                while (ch >= '0' && ch <= '9') {
-                    if (q >= token_buf + STRING_MAX_SIZE)
+                while (isnum(ch)) {
+                    if (q >= token_buf_end)
                         goto num_too_long;
                     *q++ = ch;
                     ch = *p++;
                 }
             }
             if (ch == 'e' || ch == 'E') {
-                if (q >= token_buf + STRING_MAX_SIZE)
+                if (q >= token_buf_end)
                     goto num_too_long;
                 *q++ = ch;
                 ch = *p++;
                 if (ch == '-' || ch == '+') {
-                    if (q >= token_buf + STRING_MAX_SIZE)
+                    if (q >= token_buf_end)
                         goto num_too_long;
                     *q++ = ch;
                     ch = *p++;
                 }
-                if (ch < '0' || ch > '9')
+                if (!isnum(ch))
                     expect("exponent digits");
-                while (ch >= '0' && ch <= '9') {
-                    if (q >= token_buf + STRING_MAX_SIZE)
+                while (isnum(ch)) {
+                    if (q >= token_buf_end)
                         goto num_too_long;
                     *q++ = ch;
                     ch = *p++;
@@ -1989,7 +1988,7 @@ static void parse_number(const char *p)
             q++;
         }
         n = 0;
-        while(1) {
+        for(;;) {
             t = *q++;
             /* no need for checks except for base 10 / 8 errors */
             if (t == '\0') {
@@ -2957,6 +2956,7 @@ ST_FUNC void next(void)
     TokenString str;
     struct macro_level *ml;
 
+    /* TODO: Remove global variables such as macro_ptr */
     for (;;) {
         if (parse_flags & PARSE_FLAG_SPACES)
             next_nomacro_spc();
@@ -2966,7 +2966,7 @@ ST_FUNC void next(void)
         if (!macro_ptr) {
             /* If not reading from macro substituted string, then try to
                substitute macros. */
-            if (tok >= TOK_IDENT && (parse_flags & PARSE_FLAG_PREPROCESS)
+            if ((tok >= TOK_IDENT) && (parse_flags & PARSE_FLAG_PREPROCESS)
                 && (s = define_find(tok))) {
                 /* We have a macro: try to substitute. */
                 tok_str_new(&str);
