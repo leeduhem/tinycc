@@ -1715,13 +1715,7 @@ static void parse_escape_string(CString *outstr, const uint8_t *buf, int is_long
                 n = 0;
                 for(;;) {
                     c = *p;
-                    if (c >= 'a' && c <= 'f')
-                        c = c - 'a' + 10;
-                    else if (c >= 'A' && c <= 'F')
-                        c = c - 'A' + 10;
-                    else if (isnum(c))
-                        c = c - '0';
-                    else
+                    if ((c = xchar2digit(c)) < 0)
                         break;
                     n = n * 16 + c;
                     p++;
@@ -1838,13 +1832,7 @@ static void parse_number(const char *p)
     /* parse all digits. cannot check octal numbers at this stage
        because of floating point constants */
     for (;;) {
-        if (ch >= 'a' && ch <= 'f')
-            t = ch - 'a' + 10;
-        else if (ch >= 'A' && ch <= 'F')
-            t = ch - 'A' + 10;
-        else if (isnum(ch))
-            t = ch - '0';
-        else
+        if ((t = xchar2digit(ch)) < 0)
             break;
         if (t >= b)
             break;
@@ -1873,29 +1861,16 @@ static void parse_number(const char *p)
                 t = *q++;
                 if (t == '\0') {
                     break;
-                } else if (t >= 'a') {
-                    t = t - 'a' + 10;
-                } else if (t >= 'A') {
-                    t = t - 'A' + 10;
-                } else {
-                    t = t - '0';
                 }
+                t = xchar2digit(t);
                 bn_lshift(bn, shift, t);
             }
             frac_bits = 0;
             if (ch == '.') {
                 ch = *p++;
                 for (;;) {
-                    t = ch;
-                    if (t >= 'a' && t <= 'f') {
-                        t = t - 'a' + 10;
-                    } else if (t >= 'A' && t <= 'F') {
-                        t = t - 'A' + 10;
-                    } else if (t >= '0' && t <= '9') {
-                        t = t - '0';
-                    } else {
+                    if ((t = xchar2digit(ch)) < 0)
                         break;
-                    }
                     if (t >= b)
                         tcc_error("invalid digit");
                     bn_lshift(bn, shift, t);
@@ -2019,15 +1994,10 @@ static void parse_number(const char *p)
             /* no need for checks except for base 10 / 8 errors */
             if (t == '\0') {
                 break;
-            } else if (t >= 'a') {
-                t = t - 'a' + 10;
-            } else if (t >= 'A') {
-                t = t - 'A' + 10;
-            } else {
-                t = t - '0';
-                if (t >= b)
-                    tcc_error("invalid digit");
             }
+            t = xchar2digit(t);
+            if (t >= b)
+                tcc_error("invalid digit");
             n1 = n;
             n = n * b + t;
             /* detect overflow */

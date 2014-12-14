@@ -1012,6 +1012,22 @@ static inline int toup(int c)
     return (c >= 'a' && c <= 'z') ? c - 'a' + 'A' : c;
 }
 
+static inline int xchar2digit(int c)
+{
+    int v;
+
+    if (c >= 'a' && c <= 'f')
+        v = c - 'a' + 10;
+    else if (c >= 'A' && c <= 'F')
+        v = c - 'A' + 10;
+    else if (isnum(c))
+        v = c - '0';
+    else
+        v = -1;
+
+    return v;
+}
+
 #ifndef PUB_FUNC
 # define PUB_FUNC
 #endif
