@@ -963,6 +963,7 @@ static inline void tok_get(int *t, const int **pp, CValue *cv)
     const int *p = *pp;
     int n, *tab;
 
+    n = 0;
     tab = cv->tab;
     switch(*t = *p++) {
     case TOK_CINT:
@@ -971,7 +972,7 @@ static inline void tok_get(int *t, const int **pp, CValue *cv)
     case TOK_LCHAR:
     case TOK_CFLOAT:
     case TOK_LINENUM:
-        tab[0] = *p++;
+        n = 1;
         break;
     case TOK_STR:
     case TOK_LSTR:
@@ -984,7 +985,7 @@ static inline void tok_get(int *t, const int **pp, CValue *cv)
     case TOK_CLLONG:
     case TOK_CULLONG:
         n = 2;
-        goto copy;
+        break;
     case TOK_CLDOUBLE:
 #if LDOUBLE_SIZE == 16
         n = 4;
@@ -995,14 +996,14 @@ static inline void tok_get(int *t, const int **pp, CValue *cv)
 #else
 # error add long double size support
 #endif
-    copy:
-        do
-            *tab++ = *p++;
-        while (--n);
         break;
     default:
         break;
     }
+
+    while (n--)
+        *tab++ = *p++;
+
     *pp = p;
 }
 
