@@ -687,64 +687,65 @@ static uint8_t *parse_pp_string(uint8_t *p, int sep, CString *str)
     tcc_error("missing terminating %c character", sep);
 }
 
-/* skip block of text until #else, #elif or #endif. skip also pairs of
+/* Skip block of text until #else, #elif or #endif. Skip also pairs of
    #if/#endif */
 static void preprocess_skip(void)
 {
-    int a, start_of_line, c, in_warn_or_error;
+    int a, c, start_of_line, in_warn_or_error;
     uint8_t *p;
 
     p = file->buf_ptr;
     a = 0;
-redo_start:
     start_of_line = 1;
     in_warn_or_error = 0;
-    for(;;) {
-    redo_no_start:
+
+    for (;;) {
         c = *p;
-        switch(c) {
-        case ' ':
-        case '\t':
-        case '\f':
-        case '\v':
-        case '\r':
+        switch (c) {
+        case ' ': case '\t': case '\f': case '\v': case '\r':
             p++;
-            goto redo_no_start;
+            break;
         case '\n':
             file->line_num++;
             p++;
-            goto redo_start;
+            start_of_line = 1;
+            in_warn_or_error = 0;
+            break;
         case '\\':
             file->buf_ptr = p;
             c = handle_eob();
-            if (c == CH_EOF) {
+            if (c == CH_EOF)
                 expect("#endif");
-            } else if (c == '\\') {
+            else if (c == '\\') {
                 ch = file->buf_ptr[0];
                 handle_stray_noerror();
             }
             p = file->buf_ptr;
-            goto redo_no_start;
-        /* skip strings */
+            break;
+        /* Skip strings */
         case '\"':
         case '\'':
             if (in_warn_or_error)
-                goto _default;
-            p = parse_pp_string(p, c, NULL);
+                p++;
+            else
+                p = parse_pp_string(p, c, NULL);
+            start_of_line = 0;
             break;
-        /* skip comments */
+        /* Skip comments */
         case '/':
             if (in_warn_or_error)
-                goto _default;
-            file->buf_ptr = p;
-            ch = *p;
-            minp();
-            p = file->buf_ptr;
-            if (ch == '*') {
-                p = parse_comment(p);
-            } else if (ch == '/') {
-                p = parse_line_comment(p);
+                p++;
+            else {
+                file->buf_ptr = p;
+                ch = *p;
+                minp();
+                p = file->buf_ptr;
+                if (ch == '*')
+                    p = parse_comment(p);
+                else if (ch == '/')
+                    p = parse_line_comment(p);
             }
+            start_of_line = 0;
             break;
         case '#':
             p++;
@@ -753,27 +754,29 @@ redo_start:
                 next_nomacro();
                 p = file->buf_ptr;
                 if (a == 0 &&
-                    (tok == TOK_ELSE || tok == TOK_ELIF || tok == TOK_ENDIF))
-                    goto the_end;
+                    (tok == TOK_ELSE || tok == TOK_ELIF || tok == TOK_ENDIF)) {
+                    file->buf_ptr = p;
+                    return;
+                }
                 if (tok == TOK_IF || tok == TOK_IFDEF || tok == TOK_IFNDEF)
                     a++;
                 else if (tok == TOK_ENDIF)
                     a--;
-                else if( tok == TOK_ERROR || tok == TOK_WARNING)
+                else if (tok == TOK_ERROR || tok == TOK_WARNING)
                     in_warn_or_error = 1;
-                else if (tok == TOK_LINEFEED)
-                    goto redo_start;
-            }
+                else if (tok == TOK_LINEFEED) {
+                    start_of_line = 1;
+                    in_warn_or_error = 0;
+                }
+            } else
+                start_of_line = 0;
             break;
-_default:
         default:
             p++;
+            start_of_line = 0;
             break;
         }
-        start_of_line = 0;
     }
- the_end: ;
-    file->buf_ptr = p;
 }
 
 /* ParseState handling */
