@@ -517,7 +517,7 @@ ST_FUNC void minp(void)
         handle_stray();
 }
 
-/* Single line C++ comments. */
+/* Single line comments. */
 static uint8_t *parse_line_comment(uint8_t *p)
 {
     int c;
@@ -556,9 +556,9 @@ ST_FUNC uint8_t *parse_comment(uint8_t *p)
     int c;
 
     p++;
-    for(;;) {
+    for (;;) {
         /* fast skip loop */
-        for(;;) {
+        for (;;) {
             c = *p;
             if (c == '\n' || c == '*' || c == '\\')
                 break;
@@ -568,60 +568,40 @@ ST_FUNC uint8_t *parse_comment(uint8_t *p)
                 break;
             p++;
         }
+
         /* now we can handle all the cases */
         if (c == '\n') {
             file->line_num++;
             p++;
         } else if (c == '*') {
-            p++;
-            for(;;) {
-                c = *p;
-                if (c == '*') {
-                    p++;
-                } else if (c == '/') {
-                    goto end_of_comment;
-                } else if (c == '\\') {
-                    file->buf_ptr = p;
-                    c = handle_eob();
-                    p = file->buf_ptr;
-                    if (c == '\\') {
-                        /* skip '\[\r]\n', otherwise just skip the stray */
-                        while (c == '\\') {
-                            PEEKC_EOB(c, p);
-                            if (c == '\n') {
-                                file->line_num++;
-                                PEEKC_EOB(c, p);
-                            } else if (c == '\r') {
-                                PEEKC_EOB(c, p);
-                                if (c == '\n') {
-                                    file->line_num++;
-                                    PEEKC_EOB(c, p);
-                                }
-                            } else {
-                                goto after_star;
-                            }
-                        }
-                    }
-                } else {
-                    break;
-                }
-            }
-        after_star: ;
+            c = *++p;
+            if (c == '/')
+                return ++p;
         } else {
-            /* stray, eob or eof */
             file->buf_ptr = p;
             c = handle_eob();
             p = file->buf_ptr;
-            if (c == CH_EOF) {
-                tcc_error("unexpected end of file in comment");
-            } else if (c == '\\') {
-                p++;
+
+            /* Skip '[\r]\n' */
+            while (c == '\\') {
+                PEEKC_EOB(c, p);
+                if (c == '\n') {
+                    file->line_num++;
+                    PEEKC_EOB(c, p);
+                } else if (c == '\r') {
+                    PEEKC_EOB(c, p);
+                    if (c == '\n') {
+                        file->line_num++;
+                        PEEKC_EOB(c, p);
+                    }
+                } else
+                    break;
             }
+
+            if (c == CH_EOF)
+                tcc_error("unexpected end of file in comment");
         }
     }
- end_of_comment:
-    p++;
-    return p;
 }
 
 #define cinp minp
