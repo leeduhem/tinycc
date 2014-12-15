@@ -900,7 +900,7 @@ static void tok_str_add2(TokenString *s, int t, CValue *cv)
             int nb_words;
             CString *cstr;
 
-            nb_words = (sizeof(CString) + cv->cstr->size + 3) >> 2;
+            nb_words = roundup(sizeof(CString) + cv->cstr->size, sizeof(int));
             while ((len + nb_words) > s->allocated_len)
                 str = tok_str_realloc(s);
             cstr = (CString *)(str + len);
@@ -978,7 +978,7 @@ static inline void tok_get(int *t, const int **pp, CValue *cv)
     case TOK_PPNUM:
         cv->cstr = (CString *)p;
         cv->cstr->data = (char *)p + sizeof(CString);
-        p += (sizeof(CString) + cv->cstr->size + 3) >> 2;
+        p += roundup(sizeof(CString) + cv->cstr->size, sizeof(int));
         break;
     case TOK_CDOUBLE:
     case TOK_CLLONG:

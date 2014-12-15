@@ -888,6 +888,10 @@ struct TCCState {
 #define countof(tab) (sizeof(tab) / sizeof((tab)[0]))
 #endif
 
+#ifndef roundup
+#define roundup(n, a) (((n) + ((a) - 1)) / (a))
+#endif
+
 #define TOK_EOF       (-1)  /* end of file */
 #define TOK_LINEFEED  10    /* line feed */
 
