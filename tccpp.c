@@ -408,9 +408,9 @@ static int tcc_peekc_slow(BufferedFile *bf)
             len = read(bf->fd, bf->buffer, len);
             if (len < 0)
                 len = 0;
-        } else {
+        } else
             len = 0;
-        }
+
         total_bytes += len;
         bf->buf_ptr = bf->buffer;
         bf->buf_end = bf->buffer + len;
@@ -850,11 +850,7 @@ static int *tok_str_realloc(TokenString *s)
 {
     int *str, len;
 
-    if (s->allocated_len == 0) {
-        len = 8;
-    } else {
-        len = s->allocated_len * 2;
-    }
+    len = s->allocated_len ? s->allocated_len * 2 : 8;
     str = tcc_realloc(s->str, len * sizeof(int));
     s->allocated_len = len;
     s->str = str;
@@ -881,8 +877,9 @@ static void tok_str_add2(TokenString *s, int t, CValue *cv)
     str = s->str;
 
     /* allocate space for worst case */
-    if (len + TOK_MAX_SIZE > s->allocated_len)
+    while ((len + TOK_MAX_SIZE) > s->allocated_len)
         str = tok_str_realloc(s);
+
     str[len++] = t;
     switch(t) {
     case TOK_CINT:
@@ -943,7 +940,7 @@ static void tok_str_add2(TokenString *s, int t, CValue *cv)
     s->len = len;
 }
 
-/* add the current parse token in token string 's' */
+/* Add the current parse token to token string 's' */
 ST_FUNC void tok_str_add_tok(TokenString *s)
 {
     CValue cval;
@@ -960,9 +957,10 @@ ST_FUNC void tok_str_add_tok(TokenString *s)
 /* Get a token from an integer array and increment pointer accordingly. */
 static inline void tok_get(int *t, const int **pp, CValue *cv)
 {
-    const int *p = *pp;
+    const int *p;
     int n, *tab;
 
+    p = *pp;
     n = 0;
     tab = cv->tab;
     switch(*t = *p++) {
@@ -1012,6 +1010,7 @@ static int macro_is_equal(const int *a, const int *b)
     char buf[STRING_MAX_SIZE + 1];
     CValue cv;
     int t;
+
     while (*a && *b) {
         tok_get(&t, &a, &cv);
         pstrcpy(buf, sizeof buf, get_tok_str(t, &cv));
@@ -1034,6 +1033,7 @@ ST_INLN void define_push(int v, int macro_type, int *str, Sym *first_arg)
     s = sym_push2(&define_stack, v, macro_type, 0);
     s->d = str;
     s->next = first_arg;
+    TCC_ASSERT(v - TOK_IDENT >= 0);
     table_ident[v - TOK_IDENT]->sym_define = s;
 }
 
@@ -1041,17 +1041,18 @@ ST_INLN void define_push(int v, int macro_type, int *str, Sym *first_arg)
 ST_FUNC void define_undef(Sym *sym)
 {
     int v;
+
     v = sym->v;
-    if (v >= TOK_IDENT && v < tok_ident)
+    if (TOK_IDENT <= v && v < tok_ident)
         table_ident[v - TOK_IDENT]->sym_define = NULL;
     sym->v = 0;
 }
 
 ST_INLN Sym *define_find(int v)
 {
-    if (!(v >= TOK_IDENT && v < tok_ident))
-        return NULL;
-    return table_ident[v - TOK_IDENT]->sym_define;
+    if (TOK_IDENT <= v && v < tok_ident)
+        return table_ident[v - TOK_IDENT]->sym_define;
+    return NULL;
 }
 
 /* free define stack until top reaches 'sym' */
@@ -1066,9 +1067,7 @@ ST_FUNC void free_defines(Sym *sym)
         /* do not free args or predefined defines */
         if (top->d)
             tok_str_free(top->d);
-        v = top->v;
-        if (v >= TOK_IDENT && v < tok_ident)
-            table_ident[v - TOK_IDENT]->sym_define = NULL;
+        define_undef(top);
         sym_free(top);
         top = top1;
     }
@@ -1078,22 +1077,22 @@ ST_FUNC void free_defines(Sym *sym)
 /* label lookup */
 ST_FUNC Sym *label_find(int v)
 {
-    v -= TOK_IDENT;
-    if ((unsigned)v >= (unsigned)(tok_ident - TOK_IDENT))
-        return NULL;
-    return table_ident[v]->sym_label;
+    if (TOK_IDENT <= v && v < tok_ident)
+        return table_ident[v - TOK_IDENT]->sym_label;
+    return NULL;
 }
 
 ST_FUNC Sym *label_push(Sym **ptop, int v, int flags)
 {
     Sym *s, **ps;
+
     s = sym_push2(ptop, v, 0, 0);
     s->r = flags;
     ps = &table_ident[v - TOK_IDENT]->sym_label;
     if (ptop == &global_label_stack) {
         /* modify the top most local identifier, so that
            sym_identifier will point to 's' when popped */
-        while (*ps != NULL)
+        while (*ps)
             ps = &(*ps)->prev_tok;
     }
     s->prev_tok = *ps;
@@ -1101,25 +1100,23 @@ ST_FUNC Sym *label_push(Sym **ptop, int v, int flags)
     return s;
 }
 
-/* pop labels until element last is reached. Look if any labels are
+/* pop labels until element slast is reached. Look if any labels are
    undefined. Define symbols if '&&label' was used. */
 ST_FUNC void label_pop(Sym **ptop, Sym *slast)
 {
     Sym *s, *s1;
+
     for(s = *ptop; s != slast; s = s1) {
         s1 = s->prev;
-        if (s->r == LABEL_DECLARED) {
+        if (s->r == LABEL_DECLARED)
             tcc_warning("label '%s' declared but not used",
                         get_tok_str(s->v, NULL));
-        } else if (s->r == LABEL_FORWARD) {
+        else if (s->r == LABEL_FORWARD)
                 tcc_error("label '%s' used but not defined",
                       get_tok_str(s->v, NULL));
-        } else {
-            if (s->c) {
-                /* define corresponding symbol. A size of
-                   1 is put. */
-                put_extern_sym(s, cur_text_section, s->jnext, 1);
-            }
+        else if (s->c) {
+            /* define corresponding symbol. A size of 1 is put. */
+            put_extern_sym(s, cur_text_section, s->jnext, 1);
         }
         /* remove label */
         table_ident[s->v - TOK_IDENT]->sym_label = s->prev_tok;
@@ -1172,7 +1169,7 @@ static void tok_print(int *str)
     CValue cval;
 
     printf("<");
-    while (1) {
+    for (;;) {
         tok_get(&t, &str, &cval);
         if (!t)
             break;

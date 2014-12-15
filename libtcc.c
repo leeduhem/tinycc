@@ -447,12 +447,10 @@ ST_FUNC void put_extern_sym2(Sym *sym, Section *sec, addr_t value,
 
     if (sym->type.t & VT_STATIC)
         sym_bind = STB_LOCAL;
-    else {
-        if (sym->type.t & VT_WEAK)
-            sym_bind = STB_WEAK;
-        else
-            sym_bind = STB_GLOBAL;
-    }
+    else if (sym->type.t & VT_WEAK)
+        sym_bind = STB_WEAK;
+    else
+        sym_bind = STB_GLOBAL;
 
     if (!sym->c) {
         name = get_tok_str(sym->v, NULL);
