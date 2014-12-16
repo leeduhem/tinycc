@@ -1062,7 +1062,6 @@ ST_INLN Sym *define_find(int v)
 ST_FUNC void free_defines(Sym *sym)
 {
     Sym *top, *top1;
-    int v;
 
     top = define_stack;
     while (top != sym) {
