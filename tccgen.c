@@ -158,6 +158,7 @@ static Sym *sym_malloc1(void)
 static inline Sym *sym_malloc(void)
 {
     Sym *sym;
+
     sym = sym_free_first;
     if (!sym)
         sym = sym_malloc1();
@@ -176,6 +177,7 @@ ST_INLN void sym_free(Sym *sym)
 ST_FUNC Sym *sym_push2(Sym **ps, int v, int t, long c)
 {
     Sym *s;
+
     if (ps == &local_stack) {
         for (s = *ps; s && s != scope_stack_bottom; s = s->prev) {
             TCC_ASSERT(v >= 0);
@@ -204,12 +206,11 @@ ST_FUNC Sym *sym_push2(Sym **ps, int v, int t, long c)
    of the symbol stack */
 ST_FUNC Sym *sym_find2(Sym *s, int v)
 {
-    while (s) {
+    for (; s; s = s->prev) {
         if (s->v == v)
             return s;
         else if (s->v == -1)
             return NULL;
-        s = s->prev;
     }
     return NULL;
 }
@@ -217,19 +218,17 @@ ST_FUNC Sym *sym_find2(Sym *s, int v)
 /* structure lookup */
 ST_INLN Sym *struct_find(int v)
 {
-    v -= TOK_IDENT;
-    if ((unsigned)v >= (unsigned)(tok_ident - TOK_IDENT))
-        return NULL;
-    return table_ident[v]->sym_struct;
+    if (TOK_IDENT <= v && v < tok_ident)
+        return table_ident[v - TOK_IDENT]->sym_struct;
+    return NULL;
 }
 
 /* find an identifier */
 ST_INLN Sym *sym_find(int v)
 {
-    v -= TOK_IDENT;
-    if ((unsigned)v >= (unsigned)(tok_ident - TOK_IDENT))
-        return NULL;
-    return table_ident[v]->sym_identifier;
+    if (TOK_IDENT <= v && v < tok_ident)
+        return table_ident[v - TOK_IDENT]->sym_identifier;
+    return NULL;
 }
 
 /* push a given symbol on the symbol stack */
@@ -238,10 +237,7 @@ ST_FUNC Sym *sym_push(int v, CType *type, int r, int c)
     Sym *s, **ps;
     TokenSym *ts;
 
-    if (local_stack)
-        ps = &local_stack;
-    else
-        ps = &global_stack;
+    ps = local_stack ? &local_stack : &global_stack;
     s = sym_push2(ps, v, type->t, c);
     s->type.ref = type->ref;
     s->r = r;
@@ -250,10 +246,7 @@ ST_FUNC Sym *sym_push(int v, CType *type, int r, int c)
     if (!(v & SYM_FIELD) && !(v & SYM_FIRST_ANOM)) {
         /* record symbol in token array */
         ts = table_ident[(v & ~SYM_STRUCT) - TOK_IDENT];
-        if (v & SYM_STRUCT)
-            ps = &ts->sym_struct;
-        else
-            ps = &ts->sym_identifier;
+        ps = (v & SYM_STRUCT) ? &ts->sym_struct : &ts->sym_identifier;
         s->prev_tok = *ps;
         *ps = s;
     }
@@ -264,9 +257,10 @@ ST_FUNC Sym *sym_push(int v, CType *type, int r, int c)
 ST_FUNC Sym *global_identifier_push(int v, int t, int c)
 {
     Sym *s, **ps;
+
     s = sym_push2(&global_stack, v, t, c);
     /* don't record anonymous symbol */
-    if (v < SYM_FIRST_ANOM) {
+    if (!(v & SYM_FIRST_ANOM)) {
         ps = &table_ident[v - TOK_IDENT]->sym_identifier;
         /* modify the top most local identifier, so that
            sym_identifier will point to 's' when popped */
@@ -285,8 +279,7 @@ ST_FUNC void sym_pop(Sym **ptop, Sym *b)
     TokenSym *ts;
     int v;
 
-    s = *ptop;
-    while(s != b) {
+    for (s = *ptop; s != b; s = ss) {
         ss = s->prev;
         v = s->v;
         TCC_ASSERT(v >= 0);
@@ -294,14 +287,10 @@ ST_FUNC void sym_pop(Sym **ptop, Sym *b)
         if (!(v & SYM_FIELD) && !(v & SYM_FIRST_ANOM)) {
             /* XXX: duplicate code */
             ts = table_ident[(v & ~SYM_STRUCT) - TOK_IDENT];
-            if (v & SYM_STRUCT)
-                ps = &ts->sym_struct;
-            else
-                ps = &ts->sym_identifier;
+            ps = (v & SYM_STRUCT) ? &ts->sym_struct : &ts->sym_identifier;
             *ps = s->prev_tok;
         }
         sym_free(s);
-        s = ss;
     }
     *ptop = b;
 }
@@ -321,8 +310,10 @@ static void weaken_symbol(Sym *sym)
 
 static void apply_visibility(Sym *sym, CType *type)
 {
-    int vis = sym->type.t & VT_VIS_MASK;
-    int vis2 = type->t & VT_VIS_MASK;
+    int vis, vis2;
+
+    vis = sym->type.t & VT_VIS_MASK;
+    vis2 = type->t & VT_VIS_MASK;
     if (vis == (STV_DEFAULT << VT_VIS_SHIFT))
         vis = vis2;
     else if (vis2 == (STV_DEFAULT << VT_VIS_SHIFT))
@@ -346,6 +337,7 @@ static void apply_visibility(Sym *sym, CType *type)
 ST_FUNC void swap(int *p, int *q)
 {
     int t;
+
     t = *p;
     *p = *q;
     *q = t;
@@ -353,18 +345,19 @@ ST_FUNC void swap(int *p, int *q)
 
 static void vsetc(CType *type, int r, CValue *vc)
 {
-    int v;
 
     if (vtop >= vstack + (VSTACK_SIZE - 1))
         tcc_error("memory full (vstack)");
+
     /* cannot let cpu flags if other instruction are generated. Also
        avoid leaving VT_JMP anywhere except on the top of the stack
        because it would complicate the code generator. */
     if (vtop >= vstack) {
-        v = vtop->r & VT_VALMASK;
+        int v = vtop->r & VT_VALMASK;
         if (v == VT_CMP || (v & ~1) == VT_JMP)
             gv(RC_INT);
     }
+
     vtop++;
     vtop->type = *type;
     vtop->r = r;
@@ -376,6 +369,8 @@ static void vsetc(CType *type, int r, CValue *vc)
 ST_FUNC void vpush(CType *type)
 {
     CValue cval;
+
+    cval.i = type->t;
     vsetc(type, VT_CONST, &cval);
 }
 
@@ -383,6 +378,7 @@ ST_FUNC void vpush(CType *type)
 ST_FUNC void vpushi(int v)
 {
     CValue cval;
+
     cval.i = v;
     vsetc(&int_type, VT_CONST, &cval);
 }
@@ -390,9 +386,10 @@ ST_FUNC void vpushi(int v)
 /* push a pointer sized constant */
 static void vpushs(addr_t v)
 {
-  CValue cval;
-  cval.ptr_offset = v;
-  vsetc(&size_type, VT_CONST, &cval);
+    CValue cval;
+
+    cval.ptr_offset = v;
+    vsetc(&size_type, VT_CONST, &cval);
 }
 
 /* push arbitrary 64bit constant */
@@ -400,6 +397,7 @@ ST_FUNC void vpush64(int ty, unsigned long long v)
 {
     CValue cval;
     CType ctype;
+
     ctype.t = ty;
     ctype.ref = NULL;
     cval.ull = v;
@@ -416,6 +414,7 @@ static inline void vpushll(long long v)
 static inline void vpushsym(CType *type, Sym *sym)
 {
     CValue cval;
+
     cval.ptr_offset = 0;
     vsetc(type, VT_CONST | VT_SYM, &cval);
     vtop->sym = sym;
@@ -506,6 +505,7 @@ ST_FUNC void vset(CType *type, int r, int v)
 static void vseti(int r, int v)
 {
     CType type;
+
     type.t = VT_INT;
     type.ref = 0;
     vset(&type, r, v);
@@ -514,6 +514,8 @@ static void vseti(int r, int v)
 ST_FUNC void vswap(void)
 {
     SValue tmp;
+
+    /* XXX: Duplicate code */
     /* cannot let cpu flags if other instruction are generated. Also
        avoid leaving VT_JMP anywhere except on the top of the stack
        because it would complicate the code generator. */
@@ -522,6 +524,7 @@ ST_FUNC void vswap(void)
         if (v == VT_CMP || (v & ~1) == VT_JMP)
             gv(RC_INT);
     }
+
     tmp = vtop[0];
     vtop[0] = vtop[-1];
     vtop[-1] = tmp;
@@ -536,8 +539,8 @@ ST_FUNC void vpushv(SValue *v)
 {
     if (vtop >= vstack + (VSTACK_SIZE - 1))
         tcc_error("memory full (vstack)");
-    vtop++;
-    *vtop = *v;
+
+    *++vtop = *v;
 }
 
 static void vdup(void)
@@ -555,7 +558,7 @@ ST_FUNC void save_reg(int r)
     /* modify all stack values */
     saved = 0;
     l = 0;
-    for(p=vstack;p<=vtop;p++) {
+    for(p = vstack; p <= vtop; p++) {
         if ((p->r & VT_VALMASK) == r ||
             ((p->type.t & VT_BTYPE) == VT_LLONG && (p->r2 & VT_VALMASK) == r)) {
             /* must save value on stack if not already done */
@@ -599,9 +602,8 @@ ST_FUNC void save_reg(int r)
                    relocation address of the function was stored in
                    p->c.ul */
                 p->r = (p->r & ~(VT_VALMASK | VT_BOUNDED)) | VT_LLOCAL;
-            } else {
+            } else
                 p->r = lvalue_type(p->type.t) | VT_LOCAL;
-            }
             p->r2 = VT_CONST;
             p->c.ul = l;
         }
@@ -610,13 +612,13 @@ ST_FUNC void save_reg(int r)
 
 #ifdef TCC_TARGET_ARM
 /* find a register of class 'rc2' with at most one reference on stack.
- * If none, call get_reg(rc) */
+   If none, call get_reg(rc) */
 ST_FUNC int get_reg_ex(int rc, int rc2)
 {
     int r;
     SValue *p;
 
-    for(r=0;r<NB_REGS;r++) {
+    for(r = 0; r < NB_REGS; r++) {
         if (reg_classes[r] & rc2) {
             int n;
             n=0;
@@ -675,12 +677,12 @@ ST_FUNC void save_regs(int n)
 {
     int r;
     SValue *p, *p1;
+
     p1 = vtop - n;
     for(p = vstack; p <= p1; p++) {
         r = p->r & VT_VALMASK;
-        if (r < VT_CONST) {
+        if (r < VT_CONST)
             save_reg(r);
-        }
     }
 }
 
@@ -741,8 +743,8 @@ static void gbound(void)
 }
 #endif
 
-/* store vtop a register belonging to class 'rc'. lvalues are
-   converted to values. Cannot be used if cannot be converted to
+/* Store vtop to a register belonging to class 'rc'. lvalues are
+   converted to values. Cannot be used if vtop cannot be converted to
    register value (such as structures). */
 ST_FUNC int gv(int rc)
 {
@@ -788,7 +790,7 @@ ST_FUNC int gv(int rc)
             /* CPUs usually cannot use float constants, so we store them
                generically in data segment */
             size = type_size(&vtop->type, &align);
-            offset = (data_section->data_offset + align - 1) & -align;
+            offset = roundup(data_section->data_offset, align);
             data_section->data_offset = offset;
             /* XXX: not portable yet */
 #if defined(__i386__) || defined(__x86_64__)
@@ -805,11 +807,11 @@ ST_FUNC int gv(int rc)
 #if defined(TCC_TARGET_ARM) && !defined(TCC_ARM_VFP)
             check.d = 1;
             if(check.tab[0])
-                for(i=0;i<size;i++)
+                for(i = 0; i < size; i++)
                     ptr[i] = vtop->c.tab[size-1-i];
             else
 #endif
-            for(i=0;i<size;i++)
+            for(i = 0; i < size; i++)
                 ptr[i] = vtop->c.tab[i];
             sym = get_sym_ref(&vtop->type, data_section, offset, size << 2);
             vtop->r |= VT_LVAL | VT_SYM;
@@ -847,12 +849,19 @@ ST_FUNC int gv(int rc)
         {
             r = get_reg(rc);
 #ifdef TCC_TARGET_X86_64
-            if (((vtop->type.t & VT_BTYPE) == VT_QLONG) || ((vtop->type.t & VT_BTYPE) == VT_QFLOAT)) {
-                int addr_type = VT_LLONG, load_size = 8, load_type = ((vtop->type.t & VT_BTYPE) == VT_QLONG) ? VT_LLONG : VT_DOUBLE;
+            if (((vtop->type.t & VT_BTYPE) == VT_QLONG) ||
+                ((vtop->type.t & VT_BTYPE) == VT_QFLOAT)) {
+                int addr_type, load_size, load_type;
+                addr_type = VT_LLONG;
+                load_size = 8;
+                load_type = ((vtop->type.t & VT_BTYPE) == VT_QLONG) ? VT_LLONG : VT_DOUBLE;
 #else
             if ((vtop->type.t & VT_BTYPE) == VT_LLONG) {
-                int addr_type = VT_INT, load_size = 4, load_type = VT_INT;
+                int addr_type, load_size, load_type;
                 unsigned long long ll;
+                addr_type = VT_INT;
+                load_size = 4;
+                load_type = VT_INT;
 #endif
                 int r2, original_type;
                 original_type = vtop->type.t;
@@ -966,9 +975,8 @@ ST_FUNC void gv2(int rc1, int rc2)
         gv(rc1);
         vswap();
         /* test if reload is needed for first register */
-        if ((vtop[0].r & VT_VALMASK) >= VT_CONST) {
+        if ((vtop[0].r & VT_VALMASK) >= VT_CONST)
             gv(rc2);
-        }
     }
 }
 
@@ -1021,17 +1029,17 @@ ST_FUNC void lexpand_nr(void)
     vtop->type.t = VT_INT | u;
     v=vtop[-1].r & (VT_VALMASK | VT_LVAL);
     if (v == VT_CONST) {
-      vtop[-1].c.ui = vtop->c.ull;
-      vtop->c.ui = vtop->c.ull >> 32;
-      vtop->r = VT_CONST;
+        vtop[-1].c.ui = vtop->c.ull;
+        vtop->c.ui = vtop->c.ull >> 32;
+        vtop->r = VT_CONST;
     } else if (v == (VT_LVAL|VT_CONST) || v == (VT_LVAL|VT_LOCAL)) {
-      vtop->c.ui += 4;
-      vtop->r = vtop[-1].r;
+        vtop->c.ui += 4;
+        vtop->r = vtop[-1].r;
     } else if (v > VT_CONST) {
-      vtop--;
-      lexpand();
+        vtop--;
+        lexpand();
     } else
-      vtop->r = vtop[-1].r2;
+        vtop->r = vtop[-1].r2;
     vtop[-1].r2 = VT_CONST;
     vtop[-1].type.t = VT_INT | u;
 }
@@ -1046,37 +1054,34 @@ static void lbuild(int t)
     vpop();
 }
 
-/* rotate n first stack elements to the bottom
-   I1 ... In -> I2 ... In I1 [top is right]
-*/
+/* rotate first n stack elements to the bottom
+   I1 ... In -> I2 .. In I1 [top is right] */
 ST_FUNC void vrotb(int n)
 {
     int i;
     SValue tmp;
 
     tmp = vtop[-n + 1];
-    for(i=-n+1;i!=0;i++)
+    for(i = -n + 1; i; i++)
         vtop[i] = vtop[i+1];
     vtop[0] = tmp;
 }
 
 /* rotate the n elements before entry e towards the top
-   I1 ... In ... -> In I1 ... I(n-1) ... [top is right]
- */
+   I1 ... In ... -> In I1 ... I(n-1) ... [top is right] */
 ST_FUNC void vrote(SValue *e, int n)
 {
     int i;
     SValue tmp;
 
     tmp = *e;
-    for(i = 0;i < n - 1; i++)
+    for(i = 0; i < n - 1; i++)
         e[-i] = e[-i - 1];
     e[-n + 1] = tmp;
 }
 
-/* rotate n first stack elements to the top
-   I1 ... In -> In I1 ... I(n-1)  [top is right]
- */
+/* rotate first n stack elements to the top
+   I1 ... In -> In I1 ... I(n-1)  [top is right] */
 ST_FUNC void vrott(int n)
 {
     vrote(vtop, n);
@@ -1086,6 +1091,7 @@ ST_FUNC void vrott(int n)
 ST_FUNC void vpop(void)
 {
     int v;
+
     v = vtop->r & VT_VALMASK;
 #if defined(TCC_TARGET_I386) || defined(TCC_TARGET_X86_64)
     /* for x86, we need to pop the FP stack */
@@ -1097,6 +1103,7 @@ ST_FUNC void vpop(void)
         /* need to put correct jump if && or || without test */
         gsym(vtop->c.ul);
     }
+
     vtop--;
 }
 
@@ -1129,9 +1136,8 @@ static void gv_dup(void)
         if (is_float(t)) {
             rc = RC_FLOAT;
 #ifdef TCC_TARGET_X86_64
-            if ((t & VT_BTYPE) == VT_LDOUBLE) {
+            if ((t & VT_BTYPE) == VT_LDOUBLE)
                 rc = RC_ST0;
-            }
 #endif
             sv.type.t = t;
         }
@@ -1152,7 +1158,9 @@ static void gv_dup(void)
  * Generate a test for any value (jump, comparison and integers) */
 ST_FUNC int gvtst(int inv, int t)
 {
-    int v = vtop->r & VT_VALMASK;
+    int v;
+
+    v = vtop->r & VT_VALMASK;
     if (v != VT_CMP && v != VT_JMP && v != VT_JMPI) {
         vpushi(0);
         gen_op(TOK_NE);
@@ -1173,9 +1181,11 @@ static void gen_opl(int op)
 {
     int t, a, b, op1, c, i;
     int func;
-    unsigned short reg_iret = REG_IRET;
-    unsigned short reg_lret = REG_LRET;
+    unsigned short reg_iret, reg_lret;
     SValue tmp;
+
+    reg_iret = REG_IRET;
+    reg_lret = REG_LRET;
 
     switch(op) {
     case '/':
@@ -1246,10 +1256,7 @@ static void gen_opl(int op)
             gen_op('+');
         } else if (op == '+' || op == '-') {
             /* XXX: add non carry method too (for MIPS or alpha) */
-            if (op == '+')
-                op1 = TOK_ADDC1;
-            else
-                op1 = TOK_SUBC1;
+            op1 = op == '+' ? TOK_ADDC1 : TOK_SUBC1;
             gen_op(op1);
             /* stack: H1 H2 (L1 op L2) */
             vrotb(3);
@@ -1364,9 +1371,8 @@ static void gen_opl(int op)
         a = 0;
         b = 0;
         gen_op(op1);
-        if (op1 != TOK_NE) {
+        if (op1 != TOK_NE)
             a = gvtst(1, 0);
-        }
         if (op != TOK_EQ) {
             /* generate non equal test */
             /* XXX: NOT PORTABLE yet */
@@ -1493,14 +1499,12 @@ static void gen_opic(int op)
             l2 = l1; //l = l1, l1 = l2, l2 = l;
         }
         /* Filter out NOP operations like x*1, x-0, x&-1... */
-        if (c2 && (((op == '*' || op == '/' || op == TOK_UDIV ||
-                     op == TOK_PDIV) &&
-                    l2 == 1) ||
-                   ((op == '+' || op == '-' || op == '|' || op == '^' ||
-                     op == TOK_SHL || op == TOK_SHR || op == TOK_SAR) &&
-                    l2 == 0) ||
-                   (op == '&' &&
-                    l2 == -1))) {
+        if (c2 &&
+            (((op == '*' || op == '/' || op == TOK_UDIV || op == TOK_PDIV) &&
+              l2 == 1) ||
+             ((op == '+' || op == '-' || op == '|' || op == '^' ||
+               op == TOK_SHL || op == TOK_SHR || op == TOK_SAR) && l2 == 0) ||
+             (op == '&' && l2 == -1))) {
             /* nothing to do */
             vtop--;
         } else if (c2 && (op == '*' || op == TOK_PDIV || op == TOK_UDIV)) {
@@ -1520,7 +1524,8 @@ static void gen_opic(int op)
                     op = TOK_SHR;
             }
             goto general_case;
-        } else if (c2 && (op == '+' || op == '-') &&
+        } else if (c2 &&
+                   (op == '+' || op == '-') &&
                    (((vtop[-1].r & (VT_VALMASK | VT_LVAL | VT_SYM)) == (VT_CONST | VT_SYM))
                     || (vtop[-1].r & (VT_VALMASK | VT_LVAL)) == VT_LOCAL)) {
             /* symbol + constant case */
@@ -1536,9 +1541,8 @@ static void gen_opic(int op)
                     gen_opl(op);
                 else
                     gen_opi(op);
-            } else {
+            } else
                 vtop--;
-            }
         }
     }
 }
@@ -1589,33 +1593,33 @@ static void gen_opif(int op)
             goto general_case;
         }
         /* XXX: overflow test ? */
-        if (v1->type.t == VT_FLOAT) {
+        if (v1->type.t == VT_FLOAT)
             v1->c.f = f1;
-        } else if (v1->type.t == VT_DOUBLE) {
+        else if (v1->type.t == VT_DOUBLE)
             v1->c.d = f1;
-        } else {
+        else
             v1->c.ld = f1;
-        }
         vtop--;
     } else {
     general_case:
-        if (!nocode_wanted) {
+        if (!nocode_wanted)
             gen_opf(op);
-        } else {
+        else
             vtop--;
-        }
     }
 }
 
 static int pointed_size(CType *type)
 {
     int align;
+
     return type_size(pointed_type(type), &align);
 }
 
 static void vla_runtime_pointed_size(CType *type)
 {
     int align;
+
     vla_runtime_type_size(pointed_type(type), &align);
 }
 
@@ -1655,9 +1659,9 @@ static void check_comparison_pointer_types(SValue *p1, SValue *p2, int op)
     }
 
     /* both must be pointers or implicit function pointers */
-    if (bt1 == VT_PTR) {
+    if (bt1 == VT_PTR)
         type1 = pointed_type(type1);
-    } else if (bt1 != VT_FUNC)
+    else if (bt1 != VT_FUNC)
         goto invalid_operands;
 
     if (bt2 == VT_PTR) {
@@ -1712,11 +1716,10 @@ ST_FUNC void gen_op(int op)
                 tcc_error("cannot use pointers here");
             check_comparison_pointer_types(vtop - 1, vtop, op);
             /* XXX: check that types are compatible */
-            if (vtop[-1].type.t & VT_VLA) {
+            if (vtop[-1].type.t & VT_VLA)
                 vla_runtime_pointed_size(&vtop[-1].type);
-            } else {
+            else
                 vpushi(pointed_size(&vtop[-1].type));
-            }
             vrott(3);
             gen_opic(op);
             /* set to integer type */
@@ -1774,13 +1777,12 @@ ST_FUNC void gen_op(int op)
         }
     } else if (is_float(bt1) || is_float(bt2)) {
         /* compute bigger type and do implicit casts */
-        if (bt1 == VT_LDOUBLE || bt2 == VT_LDOUBLE) {
+        if (bt1 == VT_LDOUBLE || bt2 == VT_LDOUBLE)
             t = VT_LDOUBLE;
-        } else if (bt1 == VT_DOUBLE || bt2 == VT_DOUBLE) {
+        else if (bt1 == VT_DOUBLE || bt2 == VT_DOUBLE)
             t = VT_DOUBLE;
-        } else {
+        else
             t = VT_FLOAT;
-        }
         /* floats can only be used for a few operations */
         if (op != '+' && op != '-' && op != '*' && op != '/' &&
             (op < TOK_ULT || op > TOK_GT))
@@ -1843,9 +1845,8 @@ ST_FUNC void gen_op(int op)
         if (op >= TOK_ULT && op <= TOK_GT) {
             /* relationnal op: the result is an int */
             vtop->type.t = VT_INT;
-        } else {
+        } else
             vtop->type.t = t;
-        }
     }
 }
 
@@ -1868,9 +1869,8 @@ static void gen_cvt_itof1(int t)
         gfunc_call(1);
         vpushi(0);
         vtop->r = reg_fret(t);
-    } else {
+    } else
         gen_cvt_itof(t);
-    }
 }
 #endif
 
@@ -1895,21 +1895,18 @@ static void gen_cvt_ftoi1(int t)
         vpushi(0);
         vtop->r = REG_IRET;
         vtop->r2 = REG_LRET;
-    } else {
+    } else
         gen_cvt_ftoi(t);
-    }
 }
 
 /* force char or short cast */
 static void force_charshort_cast(int t)
 {
     int bits, dbt;
+
     dbt = t & VT_BTYPE;
     /* XXX: add optimization if lvalue : just change type and offset */
-    if (dbt == VT_BYTE)
-        bits = 8;
-    else
-        bits = 16;
+    bits = dbt == VT_BYTE ? 8 : 16;
     if (t & VT_UNSIGNED) {
         vpushi((1 << bits) - 1);
         gen_op('&');
@@ -1940,9 +1937,8 @@ static void gen_cast(CType *type)
     }
 
     /* bitfields first get cast to ints */
-    if (vtop->type.t & VT_BITFIELD) {
+    if (vtop->type.t & VT_BITFIELD)
         gv(RC_INT);
-    }
 
     dbt = type->t & (VT_BTYPE | VT_UNSIGNED);
     sbt = vtop->type.t & (VT_BTYPE | VT_UNSIGNED);
