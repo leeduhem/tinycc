@@ -889,7 +889,7 @@ struct TCCState {
 #endif
 
 #ifndef roundup
-#define roundup(n, a) (((n) + ((a) - 1)) / (a))
+#define roundup(n, a) (((n) + ((a) - 1)) & -(a))
 #endif
 
 #define TOK_EOF       (-1)  /* end of file */
