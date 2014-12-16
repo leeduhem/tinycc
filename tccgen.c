@@ -136,7 +136,7 @@ ST_FUNC void test_lvalue(void)
 
 /* ------------------------------------------------------------------------- */
 /* symbol allocator */
-static Sym *__sym_malloc(void)
+static Sym *sym_malloc1(void)
 {
     Sym *sym_pool, *sym, *last_sym;
     int i;
@@ -160,7 +160,7 @@ static inline Sym *sym_malloc(void)
     Sym *sym;
     sym = sym_free_first;
     if (!sym)
-        sym = __sym_malloc();
+        sym = sym_malloc1();
     sym_free_first = sym->next;
     return sym;
 }
