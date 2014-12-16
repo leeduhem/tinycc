@@ -1183,16 +1183,16 @@ static void tok_print(int *str)
 ST_FUNC void parse_define(void)
 {
     Sym *s, *first, **ps;
-    int v, t, varg, is_vaargs, spc, ptok, macro_list_start;
+    int v, t, varg, is_vaargs, spc, ptok;
     TokenString str;
 
-    v = tok;
-    if (v < TOK_IDENT)
+    if (tok < TOK_IDENT)
         tcc_error("invalid macro name '%s'", get_tok_str(tok, &tokc));
+    v = tok;
     /* XXX: should check if same macro (ANSI) */
     first = NULL;
     t = MACRO_OBJ;
-    /* '(' must be just after macro definition for MACRO_FUNC */
+    /* '(' must be just after macro name for MACRO_FUNC */
     next_nomacro_spc();
     if (tok == '(') {
         next_nomacro();
@@ -1214,36 +1214,37 @@ ST_FUNC void parse_define(void)
             s = sym_push2(&define_stack, varg | SYM_FIELD, is_vaargs, 0);
             *ps = s;
             ps = &s->next;
-            if (tok != ',')
-                continue;
-            next_nomacro();
+            if (tok == ',')
+                next_nomacro();
         }
-        next_nomacro_spc();
         t = MACRO_FUNC;
+        next_nomacro_spc();
     }
+
+    if (is_space(tok))
+        next_nomacro();
+    if (tok == TOK_TWOSHARPS)
+        tcc_error("'##' invalid at start of macro");
+
     tok_str_new(&str);
     spc = 2;
     /* EOF testing necessary for '-D' handling */
     ptok = 0;
-    macro_list_start = 1;
     while (tok != TOK_LINEFEED && tok != TOK_EOF) {
-        if (!macro_list_start && spc == 2 && tok == TOK_TWOSHARPS)
-            tcc_error("'##' invalid at start of macro");
         ptok = tok;
         /* remove spaces around ## and after '#' */
-        if (TOK_TWOSHARPS == tok) {
-            if (1 == spc)
+        if (tok == TOK_TWOSHARPS) {
+            if (spc == 1)
                 --str.len;
             spc = 2;
-        } else if ('#' == tok) {
+        } else if (tok == '#') {
             spc = 2;
         } else if (check_space(tok, &spc)) {
-            goto skip;
+            next_nomacro_spc();
+            continue;
         }
         tok_str_add2(&str, tok, &tokc);
-    skip:
         next_nomacro_spc();
-        macro_list_start = 0;
     }
     if (ptok == TOK_TWOSHARPS)
         tcc_error("'##' invalid at end of macro");
