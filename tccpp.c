@@ -1260,7 +1260,7 @@ ST_FUNC void parse_define(void)
     define_push(v, t, str.str, first);
 }
 
-static inline int hash_cached_include(const char *filename)
+static inline unsigned int hash_cached_include(const char *filename)
 {
     const unsigned char *s;
     unsigned int h;
@@ -1278,7 +1278,7 @@ static inline int hash_cached_include(const char *filename)
 static CachedInclude *search_cached_include(TCCState *s, const char *filename)
 {
     CachedInclude *e;
-    int i, h;
+    unsigned int i, h;
 
     h = hash_cached_include(filename);
     i = s->cached_includes_hash[h];
@@ -1297,7 +1297,7 @@ static inline void add_cached_include(TCCState *s, const char *filename,
                                       int ifndef_macro)
 {
     CachedInclude *e;
-    int h;
+    unsigned int h;
 
     if (search_cached_include(s, filename))
         return;
