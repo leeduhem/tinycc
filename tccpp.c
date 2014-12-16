@@ -249,7 +249,10 @@ static TokenSym *tok_alloc_new(TokenSym **pts, const char *str, int len)
 }
 
 #define TOK_HASH_INIT 1
-#define TOK_HASH_FUNC(h, c) ((h) * 263 + (c))
+static inline unsigned int TOK_HASH_FUNC(unsigned int h, unsigned char c)
+{
+    return h * 263 + c;
+}
 
 /* Add a token if it is not exist already. */
 ST_FUNC TokenSym *tok_alloc(const char *str, int len)
@@ -260,7 +263,7 @@ ST_FUNC TokenSym *tok_alloc(const char *str, int len)
 
     h = TOK_HASH_INIT;
     for(i = 0; i < len; i++)
-        h = TOK_HASH_FUNC(h, ((unsigned char *)str)[i]);
+        h = TOK_HASH_FUNC(h, str[i]);
     h &= (TOK_HASH_SIZE - 1);
 
     pts = &hash_ident[h];
@@ -1264,7 +1267,7 @@ static inline int hash_cached_include(const char *filename)
     unsigned int h;
 
     h = TOK_HASH_INIT;
-    s = (unsigned char *) filename;
+    s = filename;
     while (*s) {
         h = TOK_HASH_FUNC(h, *s);
         s++;
